@@ -22,12 +22,12 @@ library
 executable k2csv-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:       base
                      , split
                      , bytestring
                      , cassava
-                     , deepseq
+                     , mtl
                      , k2csv
   default-language:    Haskell2010
 

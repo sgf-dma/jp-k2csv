@@ -1,3 +1,6 @@
 .stack-work/
 
 1.csv
+*.tmp
+words.csv
+kana.csv
