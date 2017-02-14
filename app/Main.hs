@@ -49,40 +49,48 @@ class Serialize a where
     toString :: a -> ShowS
 
 data JWord          = JWord
-                        { reading1  :: String
-                        , reading2  :: String
-                        , origin    :: String
-                        , translate :: String
-                        , reference :: String
+                        { reference     :: String
+                        , reading1      :: String
+                        , reading2      :: String
+                        , origin        :: String
+                        , translate     :: String
+                        , description   :: String
+                        , tags          :: String
                         }
   deriving (Show, Read)
 defJWord :: JWord
 defJWord            = JWord
-                        { reading1  = ""
-                        , reading2  = ""
-                        , origin    = ""
-                        , translate = ""
-                        , reference = ""
+                        { reference     = ""
+                        , reading1      = ""
+                        , reading2      = ""
+                        , origin        = ""
+                        , translate     = ""
+                        , description   = ""
+                        , tags          = ""
                         }
 
 instance Serialize JWord where
     fromString k    = flip runStateT k $ do
-        [r1, r2, on, tr, ref] <- toReadM (readLine '-')
+        [ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine '-')
         return JWord
-            { reading1  = r1
-            , reading2  = r2
-            , origin    = on
-            , translate = tr
-            , reference = ref
+            { reference     = ref
+            , reading1      = r1
+            , reading2      = r2
+            , origin        = on
+            , translate     = tr
+            , description   = ds
+            , tags          = ts
             }
 
 instance ToRecord JWord where
     toRecord JWord {..} = record
-                            [ toField reading1
+                            [ toField reference
+                            , toField reading1
                             , toField reading2
                             , toField origin
                             , toField translate
-                            , toField reference
+                            , toField description
+                            , toField tags
                             ]
 
 data JKana          = JKana
