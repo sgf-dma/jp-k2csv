@@ -71,7 +71,7 @@ defJWord            = JWord
 
 instance Serialize JWord where
     fromString k    = flip runStateT k $ do
-        [ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine '-')
+        [ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine ':')
         return JWord
             { reference     = ref
             , reading1      = r1
