@@ -49,7 +49,8 @@ class Serialize a where
     toString :: a -> ShowS
 
 data JWord          = JWord
-                        { reference     :: String
+                        { number        :: Int
+                        , reference     :: String
                         , reading1      :: String
                         , reading2      :: String
                         , origin        :: String
@@ -60,7 +61,8 @@ data JWord          = JWord
   deriving (Show, Read)
 defJWord :: JWord
 defJWord            = JWord
-                        { reference     = ""
+                        { number        = 0
+                        , reference     = ""
                         , reading1      = ""
                         , reading2      = ""
                         , origin        = ""
@@ -71,9 +73,10 @@ defJWord            = JWord
 
 instance Serialize JWord where
     fromString k    = flip runStateT k $ do
-        [ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine ':')
+        [n, ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine ':')
         return JWord
-            { reference     = ref
+            { number        = read n
+            , reference     = ref
             , reading1      = r1
             , reading2      = r2
             , origin        = on
@@ -84,7 +87,8 @@ instance Serialize JWord where
 
 instance ToRecord JWord where
     toRecord JWord {..} = record
-                            [ toField reference
+                            [ toField number
+                            , toField reference
                             , toField reading1
                             , toField reading2
                             , toField origin
