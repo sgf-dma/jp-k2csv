@@ -7,6 +7,7 @@ import Data.List (dropWhileEnd)
 import Data.List.Split
 import Data.Csv
 import qualified Data.ByteString.Lazy as L
+import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
 
@@ -131,12 +132,17 @@ instance ToRecord JKana where
                             , toField desc
                             ]
 
+buildMap :: [JWord] -> M.Map Int [JWord]
+buildMap            = foldr (\x -> M.insertWith (++) (number x) [x]) M.empty
 
 main :: IO ()
 main = do
     cw <- readFile "../words.txt"
-    let ws = concatMap fst (parseAll cw) :: [JWord]
-    L.writeFile "words.csv" (encode ws)
+    let ws  = buildMap . concatMap fst . parseAll $ cw
+        dws = number . head <$> (M.filter ((> 1) . length) ws)
+    print $ "Duplicate numbers: " ++ show (M.elems dws)
+    print $ "Max number: " ++ show (fst $ M.findMax ws)
+    L.writeFile "words.csv" . encode . concat . M.elems $ ws
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
     L.writeFile "kana.csv" (encode ks)
