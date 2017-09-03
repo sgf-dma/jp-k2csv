@@ -1,4 +1,5 @@
 .stack-work/
+k2csv.cabal
 
 1.csv
 *.tmp
