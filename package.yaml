@@ -14,6 +14,8 @@ dependencies: &deps
   - bytestring
   - cassava
   - mtl
+  - attoparsec
+  - text
 
 ghc-options: &ghc-opts
   - -Wall
