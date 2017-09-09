@@ -13,9 +13,12 @@ dependencies: &deps
   - split
   - bytestring
   - cassava
+  - aeson
   - mtl
   - attoparsec
   - text
+  - unordered-containers
+  - hashable
 
 ghc-options: &ghc-opts
   - -Wall
@@ -26,6 +29,9 @@ _exe-ghc-options: &exe-ghc-opts
     - -rtsopts
     - -with-rtsopts=-N
 
+library:
+    source-dirs: src
+    <<: *deps
 executables:
   k2csv-exe:
     main: Main.hs
