@@ -19,6 +19,7 @@ dependencies: &deps
   - text
   - unordered-containers
   - hashable
+  - either
 
 ghc-options: &ghc-opts
   - -Wall
