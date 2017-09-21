@@ -33,9 +33,9 @@ trimWhitespace      = T.concat <$>
 -- | Read a word consisting from at least one character until a space or
 -- newline.
 wordWspace :: A.Parser T.Text
-wordWspace          = T.cons
+wordWspace          = (T.cons
                         <$> A.satisfy (/= '\n')
-                        <*> A.takeWhile (\x -> all (/= x) [' ', '\n'])
+                        <*> A.takeWhile (\x -> all (/= x) [' ', '\n'])) A.<?> "word"
 
 whenNotP ::    A.Parser a -- ^ Predicate.
             -> A.Parser b -- ^ Parser to run.
@@ -51,24 +51,27 @@ whenNotP p x        = do
 cellLine :: A.Parser T.Text
 cellLine            = T.concat <$>
     (   A.string "| "
-    *>  some (whenNotP (A.string " |") wordWspace)
+    *>  (some (whenNotP (A.string " |") wordWspace) A.<?> "Empty cell.")
     <*  A.string " ")
 
 rowLine :: Ord a => [a] -> A.Parser (M.Map a T.Text)
 rowLine ks          = M.fromList . zip ks <$>
     (   some cellLine
     <*  A.string "|" <* A.takeTill A.isEndOfLine <* A.endOfLine)
+    A.<?> "rowLine"
 
 -- | Separator row.
 sepRow :: A.Parser [T.Text]
 sepRow              =
-        some (A.string "+" *> A.takeWhile1 (== '-'))
-    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine
+       (some (A.string "+" *> A.takeWhile1 (== '-'))
+    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine)
+    A.<?> "sepRow"
 
 headSepRow :: A.Parser [T.Text]
 headSepRow          =
-        some (A.string "+" *> A.takeWhile1 (== '='))
-    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine
+       (some (A.string "+" *> A.takeWhile1 (== '='))
+    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine)
+    A.<?> "headSepRow"
 
 -- | Multi-line table row. Newline at the end is /required/.
 -- FIXME: Make it not required. May be replace `endOfLine` with some parser
@@ -76,14 +79,16 @@ headSepRow          =
 -- FIXME: Validate, that separator and row lengthes match.
 row :: [TableKey] -> A.Parser (M.Map TableKey T.Text)
 row ks              =
-        (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks))
-    <*  sepRow
+      ((foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks))
+    <*  sepRow)
+    A.<?> "row"
 
 headerRowN :: A.Parser (M.Map Int T.Text)
 headerRowN          =
-        sepRow
-    *>  (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine [1..]))
-    <*  headSepRow
+       (sepRow
+    *> (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine [1..]))
+    <*  headSepRow)
+    A.<?> "headerRow"
 
 trimWhitespaceT :: T.Text -> T.Text
 trimWhitespaceT     = T.dropWhileEnd isSpace . T.dropWhile isSpace
