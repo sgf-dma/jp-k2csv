@@ -5,3 +5,4 @@ k2csv.cabal
 *.tmp
 words.csv
 kana.csv
+words-mnn.csv
