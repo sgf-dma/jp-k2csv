@@ -39,6 +39,8 @@ executables:
     source-dirs: app
     <<: *exe-ghc-opts
     <<: *deps
+    dependencies:
+    - k2csv
 
 tests:
   k2csv-test:

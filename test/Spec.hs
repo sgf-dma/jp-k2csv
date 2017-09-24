@@ -25,10 +25,6 @@ instance FromTable Tt where
                             <*> m .: "Address"
                             <*> m .: "Phone"
 
-tableT :: A.Parser T.Text -> A.Parser Table
-tableT hp   = let t = table hp
-              in  TableInt . M.map (\x -> TableText (M.map Cell x)) <$> t
-
 row1T :: A.Parser T.Text -> A.Parser Table
 row1T hp    = let t = table hp
               in  TableText . M.map Cell . snd . head . M.toList <$> t

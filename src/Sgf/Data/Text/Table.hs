@@ -11,6 +11,7 @@ import Data.Monoid
 import Control.Applicative
 import Control.Monad
 import qualified Data.Text              as T
+import qualified Data.Text.IO           as T
 import qualified Data.Attoparsec.Text   as A
 import qualified Data.Map               as M
 
@@ -97,6 +98,10 @@ table hp  = do
       Left e   -> fail $ "Header parsing failed with " ++ e
     M.fromList . zip [2..] <$> some (row hs)
 
+tableT :: A.Parser T.Text -> A.Parser Table
+tableT hp   = let t = table hp
+              in  TableInt . M.map (\x -> TableText (M.map Cell x)) <$> t
+
 
 type TableKey   = T.Text
 
@@ -172,7 +177,7 @@ instance FromTable Int where
     parseTable      = withCell "Int" (A.parseOnly cellDecimal)
 
 instance FromTable T.Text where
-    parseTable      = withCell "Text" (A.parseOnly trimWhitespace)
+    parseTable      = withCell "Text" (A.parseOnly (A.option "" trimWhitespace))
 
 instance FromTable a => FromTable [a] where
     parseTable      = withTableInt "[a]" $
@@ -186,4 +191,10 @@ lookupP :: (Table -> TableParser a)
 lookupP p o k       = case M.lookup k o of
     Just x  -> p x
     Nothing -> Left $ "No such key: '" ++ show k ++ "'."
+
+decode :: FromTable a => T.Text -> Either String a
+decode c            = A.parseOnly (tableT trimWhitespace) c >>= parseTable
+
+decodeFile :: FromTable a => FilePath -> IO (Either String a)
+decodeFile f        = T.readFile f >>= return . decode
 

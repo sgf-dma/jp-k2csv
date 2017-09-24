@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE RecordWildCards        #-}
 
 module Main where
 
@@ -6,10 +7,14 @@ import Data.Char (isSpace)
 import Data.List (dropWhileEnd)
 import Data.List.Split
 import Data.Csv
+import qualified Data.Text              as T
+import qualified Data.Attoparsec.Text   as A
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
+
+import qualified Sgf.Data.Text.Table    as T
 
 
 -- | One step in recursively string parsing: if there is no more input left,
@@ -72,6 +77,18 @@ defJWord            = JWord
                         , tags          = ""
                         }
 
+instance T.FromTable JWord where
+    parseTable      = T.withTableText "JWord" $ \m ->
+        JWord
+            <$> m T..: "Num"
+            <*> (T.unpack <$> m T..: "Reference")
+            <*> (T.unpack <$> m T..: "Reading1")
+            <*> (T.unpack <$> m T..: "Reading2")
+            <*> (T.unpack <$> m T..: "Origin")
+            <*> (T.unpack <$> m T..: "Translation")
+            <*> (T.unpack <$> m T..: "Description")
+            <*> (T.unpack <$> m T..: "Tags")
+
 instance Serialize JWord where
     fromString k    = flip runStateT k $ do
         [n, ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine ':')
@@ -132,17 +149,33 @@ instance ToRecord JKana where
                             , toField desc
                             ]
 
-buildMap :: [JWord] -> M.Map Int [JWord]
-buildMap            = foldr (\x -> M.insertWith (++) (number x) [x]) M.empty
+buildMap :: (a -> Int) -> [a] -> M.Map Int [a]
+buildMap toKey      = foldr (\x -> M.insertWith (++) (toKey x) [x]) M.empty
+
+writeMap :: ToRecord a => FilePath -> M.Map Int [a] -> IO ()
+writeMap f          = L.writeFile f . encode . concat . M.elems
+
+checkMap :: M.Map Int [a] -> IO ()
+checkMap m          = do
+    let ds = M.filter ((> 1) . length) m
+    print $ "Duplicate numbers: " ++ show (M.keys ds)
+    print $ "Max number: " ++ show (fst $ M.findMax m)
 
 main :: IO ()
 main = do
-    cw <- readFile "../words.txt"
-    let ws  = buildMap . concatMap fst . parseAll $ cw
-        dws = number . head <$> (M.filter ((> 1) . length) ws)
-    print $ "Duplicate numbers: " ++ show (M.elems dws)
-    print $ "Max number: " ++ show (fst $ M.findMax ws)
-    L.writeFile "words.csv" . encode . concat . M.elems $ ws
+    print "words:"
+    ws <-   readFile "../words.txt" >>=
+            return . buildMap number . concatMap fst . parseAll
+    checkMap ws
+    writeMap "words.csv" ws
+
+    print "words mnn:"
+    mws <-  T.decodeFile "../words-mnn.txt" >>=
+            either (\e -> error $ "Can't parse JWords table " ++ e)
+                   (return . buildMap number)
+    checkMap mws
+    writeMap "words-mnn.csv" mws
+
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
     L.writeFile "kana.csv" (encode ks)
