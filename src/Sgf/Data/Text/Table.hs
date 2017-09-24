@@ -76,17 +76,23 @@ headSepRow          =
 -- FIXME: Validate, that separator and row lengthes match.
 row :: [TableKey] -> A.Parser (M.Map TableKey T.Text)
 row ks              =
-        (foldr (M.unionWith unlines') M.empty <$> some (rowLine ks))
+        (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks))
     <*  sepRow
 
 headerRowN :: A.Parser (M.Map Int T.Text)
 headerRowN          =
         sepRow
-    *>  (foldr (M.unionWith unlines') M.empty <$> some (rowLine [1..]))
+    *>  (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine [1..]))
     <*  headSepRow
 
+trimWhitespaceT :: T.Text -> T.Text
+trimWhitespaceT     = T.dropWhileEnd isSpace . T.dropWhile isSpace
+
 unlines' :: T.Text -> T.Text -> T.Text
-unlines' x y    = x <> "\n" <> y
+unlines' x y    = trimWhitespaceT x <> "\n" <> trimWhitespaceT y
+
+unlines'2 :: T.Text -> T.Text -> T.Text
+unlines'2 x y   = trimWhitespaceT x <> " " <> trimWhitespaceT y
 
 -- | Parse header line first, then parse header values and use them as
 -- 'Map TableKey T.Text' later.
