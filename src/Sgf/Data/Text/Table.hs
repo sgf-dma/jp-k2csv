@@ -8,6 +8,7 @@ import Data.Typeable
 import Data.Char
 import Data.Data
 import Data.Monoid
+import Data.Foldable (foldrM)
 import Control.Applicative
 import Control.Monad
 import qualified Data.Text              as T
@@ -65,12 +66,21 @@ cellLine            = T.concat <$>
     (some (whenNotP (cellSep <|> cellRight) wordWspace) A.<?> "Empty cell.")
     <* cellRight
 
+cellLine2 :: A.Parser Table
+cellLine2            = Cell . T.concat <$>
+    (some (whenNotP (cellSep <|> cellRight) wordWspace) A.<?> "Empty cell.")
+    <* cellRight
+
 sepCell :: Char -> Char -> A.Parser T.Text
 sepCell sep cell   = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
 
 rowLine :: Ord a => [a] -> A.Parser (M.Map a T.Text)
 rowLine ks         = M.fromList . zip ks <$>
     (cellLeft *> some cellLine <* takeLine) A.<?> "rowLine"
+
+rowLine2 :: (Typeable a, Ord a) => [a] -> A.Parser Table
+rowLine2 ks         = table2 ks <$>
+    (cellLeft *> some cellLine2 <* takeLine) A.<?> "rowLine"
 
 -- | Separator row.
 sepRow :: A.Parser [T.Text]
@@ -90,10 +100,22 @@ row ks              =
     (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks)) <* sepRow
     A.<?> "row"
 
+row2 :: (Typeable a, Ord a) => [a] -> A.Parser Table
+row2 ks             =
+    (foldr1 unlines'2T <$> some (rowLine2 ks)) <* sepRow
+    A.<?> "row"
+
 headerRowN :: A.Parser (M.Map Int T.Text)
 headerRowN          =
        sepRow
     *> (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine [1..]))
+    <*  headSepRow
+    A.<?> "headerRow"
+
+headerRowN2 :: A.Parser Table
+headerRowN2         =
+       sepRow
+    *> (foldr1 unlines'2T <$> some (rowLine2 ([1..] :: [Int])))
     <*  headSepRow
     A.<?> "headerRow"
 
@@ -105,6 +127,12 @@ unlines' x y    = trimWhitespaceT x <> "\n" <> trimWhitespaceT y
 
 unlines'2 :: T.Text -> T.Text -> T.Text
 unlines'2 x y   = trimWhitespaceT x <> " " <> trimWhitespaceT y
+
+unlines'2T :: Table -> Table -> Table
+unlines'2T (Cell x)         (Cell y)        = Cell $ unlines'2 x y
+unlines'2T (TableInt x)     (TableInt y)    = TableInt  $ M.unionWith unlines'2T x y
+unlines'2T (TableText x)    (TableText y)   = TableText $ M.unionWith unlines'2T x y
+unlines'2T _                _               = error "Can't join maps of different type."
 
 -- | Parse header line first, then parse header values and use them as
 -- 'Map TableKey T.Text' later.
@@ -120,6 +148,14 @@ tableT :: A.Parser T.Text -> A.Parser Table
 tableT hp   = let t = tableP hp
               in  TableInt . M.map (\x -> TableText (M.map Cell x)) <$> t
 
+tableP2 :: FromTable a => A.Parser (TableParser a)
+tableP2    = do
+    hm <- headerRowN2
+    hs <- case parseTable hm of
+      Right mx -> return mx
+      Left e   -> fail $ "Header parsing failed with " ++ e
+    parseTable . table2 ([2..] :: [Int])
+        <$> some (row2 (hs `asTypeOf` [keyType]))
 
 type TableKey   = T.Text
 
@@ -128,10 +164,25 @@ data Table      = TableInt  (M.Map Int Table)
                 | Cell T.Text
   deriving (Show, Data)
 
+cell :: T.Text -> Table
+cell            = Cell
+table2 :: (Typeable a, Ord a) => [a] -> [Table] -> Table
+table2 ks       = case cast ks of
+    Just iks -> TableInt . M.fromList . zip iks
+    Nothing  -> case cast ks of
+      Just tks -> TableText . M.fromList . zip tks
+      Nothing  -> error $ "table2: key type unsupported: " ++ show (typeOf ks)
+
+tableText :: M.Map T.Text Table -> Table
+tableText       = TableText
+
 type TableParser a  = Either String a
 
 valueType :: Typeable a => TableParser a -> a
 valueType _         = undefined
+
+keyType :: TableKey
+keyType             = undefined
 
 -- | Pretty print table constructor. Show 'Cell' with its content.
 showTable :: Table -> String
@@ -199,7 +250,7 @@ instance FromTable T.Text where
 
 instance FromTable a => FromTable [a] where
     parseTable      = withTableInt "[a]" $
-                        foldM (\z -> fmap (: z) . parseTable) []
+                        foldrM (\x z -> fmap (: z) $ parseTable x) []
 
 (.:) :: FromTable a => M.Map T.Text Table -> TableKey -> TableParser a
 m .: k              = lookupP parseTable m k
@@ -215,4 +266,7 @@ decode c            = A.parseOnly (tableT trimWhitespace) c >>= parseTable
 
 decodeFile :: FromTable a => FilePath -> IO (Either String a)
 decodeFile f        = T.readFile f >>= return . decode
+
+decodeFile2 :: FromTable a => FilePath -> IO (Either String a)
+decodeFile2 f       = T.readFile f >>= return . join . A.parseOnly tableP2
 
