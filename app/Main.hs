@@ -8,8 +8,7 @@ import Data.List (dropWhileEnd)
 import Data.List.Split
 import Data.Csv
 import qualified Data.Text              as T
-import qualified Data.Attoparsec.Text   as A
-import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy   as L
 import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
@@ -163,18 +162,14 @@ checkMap m          = do
 
 main :: IO ()
 main = do
-    print "words:"
     ws <-   readFile "../words.txt" >>=
             return . buildMap number . concatMap fst . parseAll
-    checkMap ws
-    writeMap "words.csv" ws
-
-    print "words mnn:"
     mws <-  T.decodeFile "../words-mnn.txt" >>=
             either (\e -> error $ "Can't parse JWords table " ++ e)
                    (return . buildMap number)
-    checkMap mws
-    writeMap "words-mnn.csv" mws
+    let m = M.unionWith (++) ws mws
+    checkMap m
+    writeMap "words.csv" m
 
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
