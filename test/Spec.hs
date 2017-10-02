@@ -26,11 +26,11 @@ instance FromTable Tt where
                             <*> m .: "Phone"
 
 row1T :: A.Parser T.Text -> A.Parser Table
-row1T hp    = let t = table hp
+row1T hp    = let t = tableP hp
               in  TableText . M.map Cell . snd . head . M.toList <$> t
 
 table2T :: A.Parser T.Text -> A.Parser Table
-table2T hp  = let t = table hp
+table2T hp  = let t = tableP hp
               in  TableInt . M.singleton 1 .
                     TableInt . M.map (\x -> TableText (M.map Cell x)) <$> t
 

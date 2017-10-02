@@ -108,8 +108,8 @@ unlines'2 x y   = trimWhitespaceT x <> " " <> trimWhitespaceT y
 
 -- | Parse header line first, then parse header values and use them as
 -- 'Map TableKey T.Text' later.
-table :: A.Parser TableKey -> A.Parser (M.Map Int (M.Map TableKey T.Text))
-table hp  = do
+tableP :: A.Parser TableKey -> A.Parser (M.Map Int (M.Map TableKey T.Text))
+tableP hp  = do
     hm <- headerRowN
     hs <- case mapM (\t -> A.parseOnly hp t) hm of
       Right mx -> return (M.elems mx)
@@ -117,7 +117,7 @@ table hp  = do
     M.fromList . zip [2..] <$> some (row hs)
 
 tableT :: A.Parser T.Text -> A.Parser Table
-tableT hp   = let t = table hp
+tableT hp   = let t = tableP hp
               in  TableInt . M.map (\x -> TableText (M.map Cell x)) <$> t
 
 
