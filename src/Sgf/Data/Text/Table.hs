@@ -46,48 +46,55 @@ whenNotP p x        = do
       Left  _   -> fail "Predicate does _not_ fail in `whenNotP`."
       Right y   -> return y
 
+cellSep :: A.Parser T.Text
+cellSep             = A.string " | " A.<?> "cellSep"
+cellRight :: A.Parser T.Text
+cellRight           = A.string " |" A.<?> "cellRight"
+cellLeft :: A.Parser T.Text
+cellLeft            = A.string "| " A.<?> "cellLeft"
+
+takeLine :: A.Parser T.Text
+takeLine            = A.takeTill A.isEndOfLine <* (A.endOfLine <|> A.endOfInput)
+
 -- | Cell row /not/ including spaces around cell separators. Version
--- /requiring/ starting and ending @|@ character.
+-- /requiring/ starting and ending @|@ character. I need to /require/
+-- 'cellEnd' here, so parsing not a proper cell will fail instead of consuming
+-- part of input until 'wordWspace' fails (e.g. at 'endOfLine').
 cellLine :: A.Parser T.Text
 cellLine            = T.concat <$>
-    (   A.string "| "
-    *>  (some (whenNotP (A.string " |") wordWspace) A.<?> "Empty cell.")
-    <*  A.string " ")
+    (some (whenNotP (cellSep <|> cellRight) wordWspace) A.<?> "Empty cell.")
+    <* cellRight
+
+sepCell :: Char -> Char -> A.Parser T.Text
+sepCell sep cell   = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
 
 rowLine :: Ord a => [a] -> A.Parser (M.Map a T.Text)
-rowLine ks          = M.fromList . zip ks <$>
-    (   some cellLine
-    <*  A.string "|" <* A.takeTill A.isEndOfLine <* A.endOfLine)
-    A.<?> "rowLine"
+rowLine ks         = M.fromList . zip ks <$>
+    (cellLeft *> some cellLine <* takeLine) A.<?> "rowLine"
 
 -- | Separator row.
 sepRow :: A.Parser [T.Text]
 sepRow              =
-       (some (A.string "+" *> A.takeWhile1 (== '-'))
-    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine)
-    A.<?> "sepRow"
+    A.string "+" *> some (sepCell '+' '-') <* takeLine A.<?> "sepRow"
 
 headSepRow :: A.Parser [T.Text]
 headSepRow          =
-       (some (A.string "+" *> A.takeWhile1 (== '='))
-    <*  A.string "+" <* A.takeTill A.isEndOfLine <* A.endOfLine)
-    A.<?> "headSepRow"
+    A.string "+" *> some (sepCell '+' '=') <* takeLine A.<?> "headSepRow"
 
 -- | Multi-line table row. Newline at the end is /required/.
 -- FIXME: Make it not required. May be replace `endOfLine` with some parser
 -- `tokEnd`, which will match with `endOfInput` too.
 -- FIXME: Validate, that separator and row lengthes match.
-row :: [TableKey] -> A.Parser (M.Map TableKey T.Text)
+row :: Ord a => [a] -> A.Parser (M.Map a T.Text)
 row ks              =
-      ((foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks))
-    <*  sepRow)
+    (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine ks)) <* sepRow
     A.<?> "row"
 
 headerRowN :: A.Parser (M.Map Int T.Text)
 headerRowN          =
-       (sepRow
+       sepRow
     *> (foldr (M.unionWith unlines'2) M.empty <$> some (rowLine [1..]))
-    <*  headSepRow)
+    <*  headSepRow
     A.<?> "headerRow"
 
 trimWhitespaceT :: T.Text -> T.Text
