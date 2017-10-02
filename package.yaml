@@ -20,6 +20,7 @@ dependencies: &deps
   - unordered-containers
   - hashable
   - either
+  - tagged
 
 ghc-options: &ghc-opts
   - -Wall

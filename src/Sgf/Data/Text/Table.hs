@@ -8,6 +8,7 @@ import Data.Typeable
 import Data.Char
 import Data.Data
 import Data.Monoid
+import Data.Tagged
 import Data.Foldable (foldrM)
 import Control.Applicative
 import Control.Monad
@@ -67,20 +68,38 @@ cellLine            = T.concat <$>
     <* cellRight
 
 cellLine2 :: A.Parser Table
-cellLine2            = Cell . T.concat <$>
+cellLine2            = cell . T.concat <$>
     (some (whenNotP (cellSep <|> cellRight) wordWspace) A.<?> "Empty cell.")
     <* cellRight
 
+witnessM :: Functor m => m (Tagged s b) -> m s -> m b
+witnessM            = flip $ const (fmap untag)
+
+cellLineC :: TableFormat a => A.Parser a
+cellLineC           =
+    let v = cellC . T.concat
+            <$> (some (whenNotP ((cellSepC <|> cellRightC) `witnessM` v) wordWspace)
+                 A.<?> "Empty cell.")
+            <*  cellRightC `witnessM` v
+    in  v
+
 sepCell :: Char -> Char -> A.Parser T.Text
-sepCell sep cell   = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
+sepCell sep cell    = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
 
 rowLine :: Ord a => [a] -> A.Parser (M.Map a T.Text)
-rowLine ks         = M.fromList . zip ks <$>
+rowLine ks          = M.fromList . zip ks <$>
     (cellLeft *> some cellLine <* takeLine) A.<?> "rowLine"
 
 rowLine2 :: (Typeable a, Ord a) => [a] -> A.Parser Table
 rowLine2 ks         = table2 ks <$>
     (cellLeft *> some cellLine2 <* takeLine) A.<?> "rowLine"
+
+rowLineC :: (TableFormat t, Typeable a, Ord a) => [a] -> A.Parser t
+rowLineC ks         =
+    let v = tableC ks <$>
+                (cellLeftC `witnessM` v *> some cellLineC <* takeLine)
+            A.<?> "rowLine"
+    in  v
 
 -- | Separator row.
 sepRow :: A.Parser [T.Text]
@@ -105,6 +124,11 @@ row2 ks             =
     (foldr1 unlines'2T <$> some (rowLine2 ks)) <* sepRow
     A.<?> "row"
 
+rowC :: (TableFormat t, Typeable a, Ord a) => [a] -> A.Parser t
+rowC ks             =
+    (foldr1 unlinesC <$> some (rowLineC ks)) <* sepRow
+    A.<?> "row"
+
 headerRowN :: A.Parser (M.Map Int T.Text)
 headerRowN          =
        sepRow
@@ -116,6 +140,13 @@ headerRowN2 :: A.Parser Table
 headerRowN2         =
        sepRow
     *> (foldr1 unlines'2T <$> some (rowLine2 ([1..] :: [Int])))
+    <*  headSepRow
+    A.<?> "headerRow"
+
+headerRowNC :: TableFormat t => A.Parser t
+headerRowNC         =
+       sepRow
+    *> (foldr1 unlinesC <$> some (rowLineC ([1..] :: [Int])))
     <*  headSepRow
     A.<?> "headerRow"
 
@@ -157,7 +188,33 @@ tableP2    = do
     parseTable . table2 ([2..] :: [Int])
         <$> some (row2 (hs `asTypeOf` [keyType]))
 
+tablePC :: FromTable a => A.Parser (TableParser a)
+tablePC    = do
+    hm <- headerRowNC
+    hs <- case parseTable hm of
+      Right mx -> return mx
+      Left e   -> fail $ "Header parsing failed with " ++ e
+    parseTable . tableC ([2..] :: [Int])
+        <$> some (rowC (hs `asTypeOf` [keyType]))
+
 type TableKey   = T.Text
+
+class TableFormat a where
+    table0 :: a
+    cellC :: T.Text -> a
+    tableC :: (Typeable k, Ord k) => [k] -> [a] -> a
+    unlinesC :: a -> a -> a
+    cellSepC :: A.Parser (Tagged a T.Text)
+    cellRightC :: A.Parser (Tagged a T.Text)
+    cellLeftC :: A.Parser (Tagged a T.Text)
+
+instance TableFormat Table where
+    cellC           = Cell
+    tableC          = table2
+    unlinesC        = unlines'2T
+    cellSepC        = Tagged <$> cellSep
+    cellRightC      = Tagged <$> cellRight
+    cellLeftC       = Tagged <$> cellLeft
 
 data Table      = TableInt  (M.Map Int Table)
                 | TableText (M.Map T.Text Table)
@@ -269,4 +326,7 @@ decodeFile f        = T.readFile f >>= return . decode
 
 decodeFile2 :: FromTable a => FilePath -> IO (Either String a)
 decodeFile2 f       = T.readFile f >>= return . join . A.parseOnly tableP2
+
+decodeFileC :: FromTable a => FilePath -> IO (Either String a)
+decodeFileC f       = T.readFile f >>= return . join . A.parseOnly tablePC
 
