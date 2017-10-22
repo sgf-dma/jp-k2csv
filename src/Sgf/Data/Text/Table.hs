@@ -3,6 +3,21 @@
 {-# LANGUAGE FlexibleContexts       #-}
 
 module Sgf.Data.Text.Table
+    ( FromTable (..)
+    , (.:)
+
+    , cellDecimal
+    , trimWhitespace
+    , trimWhitespaceT
+
+    , Table
+    , withCell
+    , withTableInt
+    , withTableText
+    , decodeFile
+    , decodeFileL
+    , decodeFile'
+    )
   where
 
 import Data.Typeable

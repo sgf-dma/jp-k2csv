@@ -1,10 +1,19 @@
 {-# LANGUAGE OverloadedStrings      #-}
 
 module Sgf.Data.Text.Table.Parse
+    ( TableFormat (..)
+
+    , emptyLine
+    , row
+    , headerRow
+
+    , rawTable
+    , rawTables
+    , decodeFileRaw
+    )
   where
 
 import Data.Typeable
-import Data.Char
 import Data.Tagged
 import Control.Applicative
 import qualified Data.Text              as T
