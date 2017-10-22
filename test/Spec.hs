@@ -23,7 +23,7 @@ instance FromTable Tt where
                             <*> m .: "Phone"
 
 testT :: IO (Either String [Tt])
-testT       = decodeFile "test/table.txt"
+testT       = decodeFileL "test/table.txt"
 
 main :: IO ()
 main                = do

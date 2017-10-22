@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE DeriveDataTypeable     #-}
+{-# LANGUAGE FlexibleContexts       #-}
 
 module Sgf.Data.Text.Table
   where
@@ -46,6 +47,20 @@ tablePC    = do
       Left e   -> fail $ "Header parsing failed with " ++ e
     parseTable . table ([2..] :: [Int])
         <$> some (row (hs `asTypeOf` [keyType]))
+
+tablePC' :: TableFormat t => A.Parser t
+tablePC'   = do
+    hm <- headerRow
+    hs <- case parseTable hm of
+      Right mx -> return mx
+      Left e   -> fail $ "Header parsing failed with " ++ e
+    table ([2..] :: [Int])
+        <$> some (row (hs `asTypeOf` [keyType]))
+
+tablePCs :: FromTable a => A.Parser (TableParser a)
+tablePCs    = do
+    ets <- some (tablePC' <* many emptyLine)
+    return (parseTable . table ([1..] :: [Int]) $ ets)
 
 type TableKey   = T.Text
 
@@ -155,6 +170,12 @@ lookupP p o k       = case M.lookup k o of
     Just x  -> p x
     Nothing -> Left $ "No such key: '" ++ show k ++ "'."
 
+decodeFileL :: (Monoid a, FromTable a) => FilePath -> IO (Either String a)
+decodeFileL f       = decodeFile' f >>= return . fmap mconcat
+
 decodeFile :: FromTable a => FilePath -> IO (Either String a)
-decodeFile f       = T.readFile f >>= return . join . A.parseOnly tablePC
+decodeFile f      = T.readFile f >>= return . join . A.parseOnly tablePC
+
+decodeFile' :: FromTable a => FilePath -> IO (Either String a)
+decodeFile' f      = T.readFile f >>= return . join . A.parseOnly tablePCs
 

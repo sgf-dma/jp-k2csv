@@ -164,7 +164,7 @@ main :: IO ()
 main = do
     ws <-   readFile "../words.txt" >>=
             return . buildMap number . concatMap fst . parseAll
-    mws <-  T.decodeFile "../words-mnn.txt" >>=
+    mws <-  T.decodeFileL "../words-mnn.txt" >>=
             either (\e -> error $ "Can't parse JWords table " ++ e)
                    (return . buildMap number)
     let m = M.unionWith (++) ws mws
