@@ -34,6 +34,9 @@ wordWspace          = (T.cons
 takeLine :: A.Parser T.Text
 takeLine            = A.takeTill A.isEndOfLine <* (A.endOfLine <|> A.endOfInput)
 
+emptyLine :: A.Parser T.Text
+emptyLine           =
+    A.takeWhile (`elem` [' ', '\t']) <* A.endOfLine A.<?> "emptyLine"
 
 class TableFormat a where
     emptyTable  :: a
@@ -82,7 +85,7 @@ headSepRow          =
 -- `tokEnd`, which will match with `endOfInput` too.
 -- FIXME: Validate, that separator and row lengthes match.
 row :: (TableFormat t, Typeable a, Ord a) => [a] -> A.Parser t
-row ks             =
+row ks              =
     (foldr1 unlinesRow <$> some (rowLine ks)) <* sepRow
     A.<?> "row"
 
@@ -93,11 +96,15 @@ headerRow           =
     <*  headSepRow
     A.<?> "headerRow"
 
-tableRaw :: (Typeable a, Ord a, TableFormat t) => [a] -> A.Parser t
-tableRaw ks         = table ([1..] :: [Int])
+rawTable :: (Typeable a, Ord a, TableFormat t) => [a] -> A.Parser t
+rawTable ks         = table ([1..] :: [Int])
                         <$> ((:) <$> headerRow <*> some (row ks))
 
 decodeFileRaw :: (Typeable a, Ord a, TableFormat t) =>
                 [a] -> FilePath -> IO (Either String t)
-decodeFileRaw ks f  = T.readFile f >>= return . A.parseOnly (tableRaw ks)
+decodeFileRaw ks f  = T.readFile f >>= return . A.parseOnly (rawTables ks)
+
+rawTables :: (Typeable a, Ord a, TableFormat t) => [a] -> A.Parser t
+rawTables ks        = table ([1..] :: [Int])
+                        <$> some (rawTable ks <* many emptyLine)
 
