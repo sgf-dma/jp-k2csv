@@ -162,12 +162,9 @@ checkMap m          = do
 
 main :: IO ()
 main = do
-    ws <-   readFile "../words.txt" >>=
-            return . buildMap number . concatMap fst . parseAll
-    mws <-  T.decodeFileL "../words-mnn.txt" >>=
+    m <-  T.decodeFileL "../words-mnn.txt" >>=
             either (\e -> error $ "Can't parse JWords table " ++ e)
                    (return . buildMap number)
-    let m = M.unionWith (++) ws mws
     checkMap m
     writeMap "words.csv" m
 
