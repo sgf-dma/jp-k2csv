@@ -61,6 +61,7 @@ data JWord          = JWord
                         , origin        :: String
                         , translate     :: String
                         , description   :: String
+                        , seeAlso       :: String
                         , tags          :: String
                         }
   deriving (Show, Read)
@@ -73,6 +74,7 @@ defJWord            = JWord
                         , origin        = ""
                         , translate     = ""
                         , description   = ""
+                        , seeAlso       = ""
                         , tags          = ""
                         }
 
@@ -86,11 +88,12 @@ instance T.FromTable JWord where
             <*> (T.unpack <$> m T..: "Origin")
             <*> (T.unpack <$> m T..: "Translation")
             <*> (T.unpack <$> m T..: "Description")
+            <*> (T.unpack <$> m T..: "SeeAlso")
             <*> (T.unpack <$> m T..: "Tags")
 
 instance Serialize JWord where
     fromString k    = flip runStateT k $ do
-        [n, ref, r1, r2, on, tr, ds, ts] <- toReadM (readLine ':')
+        [n, ref, r1, r2, on, tr, ds, sa, ts] <- toReadM (readLine ':')
         return JWord
             { number        = read n
             , reference     = ref
@@ -99,6 +102,7 @@ instance Serialize JWord where
             , origin        = on
             , translate     = tr
             , description   = ds
+            , seeAlso       = sa
             , tags          = ts
             }
 
@@ -111,6 +115,7 @@ instance ToRecord JWord where
                             , toField origin
                             , toField translate
                             , toField description
+                            , toField seeAlso
                             , toField tags
                             ]
 
