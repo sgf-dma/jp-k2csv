@@ -3,12 +3,12 @@
 
 module Main where
 
-import Data.Char (isSpace)
-import Data.List (dropWhileEnd)
+import Data.Char
+import qualified Data.List as L
 import Data.List.Split
 import Data.Csv
 import qualified Data.Text              as T
-import qualified Data.ByteString.Lazy   as L
+import qualified Data.ByteString.Lazy   as BL
 import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
@@ -42,7 +42,7 @@ readLine s          = go . span (/= '\n')
         go ([], _ : r)  = readLine s r  -- Empty string.
         go (l , r)      =
             let xs = splitOn sep l
-                ys = map (dropWhileEnd isSpace . dropWhile isSpace) xs
+                ys = map (L.dropWhileEnd isSpace . dropWhile isSpace) xs
             in  [(ys, drop 1 r)]
 
 type ReadM a        = StateT String [] a
@@ -157,7 +157,7 @@ buildMap :: (a -> Int) -> [a] -> M.Map Int [a]
 buildMap toKey      = foldr (\x -> M.insertWith (++) (toKey x) [x]) M.empty
 
 writeMap :: ToRecord a => FilePath -> M.Map Int [a] -> IO ()
-writeMap f          = L.writeFile f . encode . concat . M.elems
+writeMap f          = BL.writeFile f . encode . concat . M.elems
 
 checkMap :: M.Map Int [a] -> IO ()
 checkMap m          = do
@@ -165,15 +165,20 @@ checkMap m          = do
     print $ "Duplicate numbers: " ++ show (M.keys ds)
     print $ "Max number: " ++ show (fst $ M.findMax m)
 
+-- | Possible foreign words. Though, filtering may be greatly improved..
+possibleForeign :: M.Map Int [JWord] -> M.Map Int [JWord]
+possibleForeign     = M.map (filter (all isAscii . origin))
+
 main :: IO ()
 main = do
     m <-  T.decodeFileL "../words-mnn.txt" >>=
             either (\e -> error $ "Can't parse JWords table " ++ e)
                    (return . buildMap number)
     checkMap m
+    writeMap "foreign.csv" (possibleForeign m)
     writeMap "words.csv" m
 
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
-    L.writeFile "kana.csv" (encode ks)
+    BL.writeFile "kana.csv" (encode ks)
 
