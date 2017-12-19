@@ -47,6 +47,9 @@ emptyLine :: A.Parser T.Text
 emptyLine           =
     A.takeWhile (`elem` [' ', '\t']) <* A.endOfLine A.<?> "emptyLine"
 
+--class TableFormat a k where
+--class TableFormat (a k) where
+-- data Table k = forall t. TableFormat (Table t) => Table (M.Map k (Table t)) | Cell T.Text
 class TableFormat a where
     emptyTable  :: a
     cell        :: T.Text -> a
@@ -55,6 +58,15 @@ class TableFormat a where
     cellSep     :: A.Parser (Tagged a T.Text)
     cellRight   :: A.Parser (Tagged a T.Text)
     cellLeft    :: A.Parser (Tagged a T.Text)
+
+class TableFormat2 (a k) where
+    emptyTable  :: a k
+    cell        :: T.Text -> a k
+    table       :: (Typeable k, Ord k) => [a k] -> a k
+    unlinesRow  :: a k -> a k -> a k
+    cellSep     :: A.Parser (Tagged (a k) T.Text)
+    cellRight   :: A.Parser (Tagged (a k) T.Text)
+    cellLeft    :: A.Parser (Tagged (a k) T.Text)
 
 -- | Cell row /not/ including spaces around cell separators. Version
 -- /requiring/ starting and ending @|@ character. I need to /require/
@@ -68,7 +80,7 @@ cellLine            =
             <*  cellRight `witnessM` v
     in  v
 
-rowLine :: (TableFormat t, Typeable a, Ord a) => [a] -> A.Parser t
+rowLine :: (TableFormat a, Typeable k, Ord k) => [k] -> A.Parser a
 rowLine ks         =
     let v = table ks <$>
                 (cellLeft `witnessM` v *> some cellLine <* takeLine)
