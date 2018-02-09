@@ -1,4 +1,5 @@
 
+import Control.Monad (replicateM)
 import Control.Monad.State
 import Text.Printf
 import System.Random
@@ -14,7 +15,7 @@ num     = 50
 range :: Int
 range   = 3
 
--- Filename with extension and numeric suffix.
+-- Filename without extension and numeric suffix.
 fname :: FilePath
 fname   = "random-nums"
 
@@ -22,25 +23,23 @@ main :: IO ()
 main                = do
     g <- newStdGen
     let ds = go g num range
-    ds' <- shuffleM ds >>= return . unlines . map show
-    let fn = fname
-    fn <- getFilename
+    ds' <- unlines . map show <$> shuffleM ds
+    fn  <- getFilename
     writeFile fn ds'
     putStr ds'
   where
     --go :: RandomGen g => Int -> Int -> [Int]
-    go g n m        = flip evalState g . fmap concat . sequence
-                        . map (generate n) . take m
-                        $   [     (10,     99)
-                            ,    (100,    999)
-                            ,   (1000,   9999)
-                            ,  (10000,  99999)
-                            , (100000, 999999)
-                            ]
+    go g n m    = flip evalState g . fmap concat . mapM (generate n) . take m
+                    $ [     (10,     99)
+                      ,    (100,    999)
+                      ,   (1000,   9999)
+                      ,  (10000,  99999)
+                      , (100000, 999999)
+                      ]
 
 -- Generate random numbers in given range.
 generate :: RandomGen g => Int -> (Int, Int) -> State g [Int]
-generate n          = sequence . replicate n . state . randomR
+generate n          = replicateM n . state . randomR
 
 -- Find not yet used filename.
 getFilename :: IO FilePath
