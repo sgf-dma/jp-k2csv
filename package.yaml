@@ -42,6 +42,15 @@ executables:
     <<: *deps
     dependencies:
     - k2csv
+  random-nums:
+    main: random-nums.hs
+    source-dirs: app
+    <<: *exe-ghc-opts
+    dependencies:
+      - base
+      - random
+      - random-shuffle
+      - directory
 
 tests:
   k2csv-test:
