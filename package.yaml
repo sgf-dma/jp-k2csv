@@ -21,6 +21,7 @@ dependencies: &deps
   - hashable
   - either
   - tagged
+  - turtle
 
 ghc-options: &ghc-opts
   - -Wall

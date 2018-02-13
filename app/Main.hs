@@ -3,7 +3,9 @@
 
 module Main where
 
+import Turtle.Shell
 import Data.Char
+import qualified Data.String as S
 import qualified Data.List as L
 import Data.List.Split
 import Data.Csv
@@ -12,8 +14,11 @@ import qualified Data.ByteString.Lazy   as BL
 import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
+import Turtle.Shell
+import Turtle.Line
 
 import qualified Sgf.Data.Text.Table    as T
+import Sgf.JPWords.Checks
 
 
 -- | One step in recursively string parsing: if there is no more input left,
@@ -169,12 +174,20 @@ checkMap m          = do
 possibleForeign :: M.Map Int [JWord] -> M.Map Int [JWord]
 possibleForeign     = M.map (filter (all isAscii . origin))
 
+checkRefs :: M.Map Int [JWord] -> IO ()
+checkRefs           = view . bothKanjiRefAndRel . onlyRefs
+  where
+    onlyRefs :: M.Map Int [JWord] -> Shell Line
+    onlyRefs        = select . textToLines . S.fromString . reference
+                        <=< select <=< select
+
 main :: IO ()
 main = do
     m <-  T.decodeFileL "../words-mnn.txt" >>=
             either (\e -> error $ "Can't parse JWords table " ++ e)
                    (return . buildMap number)
     checkMap m
+    checkRefs m
     writeMap "foreign.csv" (possibleForeign m)
     writeMap "words.csv" m
 
