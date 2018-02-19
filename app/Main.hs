@@ -3,7 +3,6 @@
 
 module Main where
 
-import Turtle.Shell
 import Data.Char
 import qualified Data.String as S
 import qualified Data.List as L
@@ -124,6 +123,45 @@ instance ToRecord JWord where
                             , toField tags
                             ]
 
+data JConj          = JConj
+                        { conjNumber    :: Int
+                        , conjReference :: String
+                        , dictForm      :: String
+                        , masuForm      :: String
+                        , teForm        :: String
+                        , conjTags      :: String
+                        }
+  deriving (Show, Read)
+defJConj :: JConj
+defJConj            = JConj
+                        { conjNumber    = 0
+                        , conjReference = ""
+                        , dictForm      = ""
+                        , masuForm      = ""
+                        , teForm        = ""
+                        , conjTags      = ""
+                        }
+instance T.FromTable JConj where
+    parseTable      = T.withTableText "JConj" $ \m ->
+        JConj
+            <$> m T..: "Num"
+            <*> (T.unpack <$> m T..: "Reference")
+            <*> (T.unpack <$> m T..: "Dictionary form")
+            <*> (T.unpack <$> m T..: "ます-form")
+            <*> (T.unpack <$> m T..: "て-form")
+            <*> (T.unpack <$> m T..: "Tags")
+
+instance ToRecord JConj where
+    toRecord JConj {..} = record
+                            [ toField conjNumber
+                            , toField conjReference
+                            , toField dictForm
+                            , toField masuForm
+                            , toField teForm
+                            , toField conjTags
+                            ]
+
+
 data JKana          = JKana
                         { hiragana  :: String
                         , katakana  :: String
@@ -190,6 +228,12 @@ main = do
     checkRefs m
     writeMap "foreign.csv" (possibleForeign m)
     writeMap "words.csv" m
+
+    mconj <-  T.decodeFileL "../conjugations.txt" >>=
+            either (\e -> error $ "Can't parse JConj table " ++ e)
+                   (return . buildMap conjNumber)
+    checkMap mconj
+    writeMap "conj.csv" mconj
 
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
