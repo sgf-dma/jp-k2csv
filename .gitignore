@@ -6,5 +6,6 @@ k2csv.cabal
 words.csv
 kana.csv
 words-mnn.csv
+conj.csv
 
 random-nums-[0-9]*.txt
