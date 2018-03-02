@@ -40,17 +40,38 @@ notEmpty px
   | otherwise       = pure px
 
 
+{-data Ref            = KRef {_lesson :: Int, _seqNum :: Int}
+                    | KRel {_baseRef :: Ref, _lesson :: Int,  _seqNum :: Int}
+  deriving (Show)-}
+
+data Ref            = LRef {_lesson :: Int}
+                    | KRef {_baseRef :: Ref, _seqNum :: Int}
+                    | KRel {_baseRef :: Ref, _otherInfo :: Text}
+  deriving (Show)
+
 kanjiRefBase :: Pattern Text
 kanjiRefBase        = text "M" <> plus digit <> text "-K"
+
+lRefP :: Pattern Ref
+lRefP               = LRef <$> (text "M" *> decimal)
+
+kRefBaseP :: Pattern Ref
+kRefBaseP           = lRefP <* text "-K"
 
 -- Kanji reference.
 kanjiRef :: Pattern Text
 kanjiRef            = kanjiRefBase <> plus digit
 
+kRefP :: Pattern Ref
+kRefP               = KRef <$> kRefBaseP <*> decimal
+
 -- Related to kanji reference.
 kanjiRel :: Pattern Text
 kanjiRel            = kanjiRefBase <> option (plus digit)
-                        <> text "-" <> option (plus (notChar ' '))
+                        <> text "-" <> option word
+
+kRelP :: Pattern Ref
+kRelP               = KRel <$> (kRefP <|> kRefBaseP) <*> (text "-" *> option word)
 
 -- Filter out lines with both kanji reference and kanji relative reference set.
 bothKanjiRefAndRel :: Shell Line -> Shell Line
