@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 
 module Sgf.JPWords.Checks
     ( bothKanjiRefAndRel
@@ -72,6 +73,12 @@ kanjiRel            = kanjiRefBase <> option (plus digit)
 
 kRelP :: Pattern Ref
 kRelP               = KRel <$> (kRefP <|> kRefBaseP) <*> (text "-" *> option word)
+
+bothKRefAndRelSameL :: Pattern Text
+bothKRefAndRelSameL = do
+    KRef{..} <- kRefP
+    KRel{..} <- kRelP
+    undefined
 
 -- Filter out lines with both kanji reference and kanji relative reference set.
 bothKanjiRefAndRel :: Shell Line -> Shell Line
