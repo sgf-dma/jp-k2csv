@@ -129,6 +129,7 @@ data JConj          = JConj
                         , dictForm      :: String
                         , masuForm      :: String
                         , teForm        :: String
+                        , naiForm       :: String
                         , conjTags      :: String
                         }
   deriving (Show, Read)
@@ -139,6 +140,7 @@ defJConj            = JConj
                         , dictForm      = ""
                         , masuForm      = ""
                         , teForm        = ""
+                        , naiForm       = ""
                         , conjTags      = ""
                         }
 instance T.FromTable JConj where
@@ -149,6 +151,7 @@ instance T.FromTable JConj where
             <*> (T.unpack <$> m T..: "Dictionary form")
             <*> (T.unpack <$> m T..: "ます-form")
             <*> (T.unpack <$> m T..: "て-form")
+            <*> (T.unpack <$> m T..: "ない-form")
             <*> (T.unpack <$> m T..: "Tags")
 
 instance ToRecord JConj where
@@ -158,6 +161,7 @@ instance ToRecord JConj where
                             , toField dictForm
                             , toField masuForm
                             , toField teForm
+                            , toField naiForm
                             , toField conjTags
                             ]
 
