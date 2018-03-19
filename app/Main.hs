@@ -127,9 +127,13 @@ data JConj          = JConj
                         { conjNumber    :: Int
                         , conjReference :: String
                         , dictForm      :: String
+                        , dictFormK     :: String
                         , masuForm      :: String
+                        , masuFormK     :: String
                         , teForm        :: String
+                        , teFormK       :: String
                         , naiForm       :: String
+                        , naiFormK      :: String
                         , conjTags      :: String
                         }
   deriving (Show, Read)
@@ -138,9 +142,13 @@ defJConj            = JConj
                         { conjNumber    = 0
                         , conjReference = ""
                         , dictForm      = ""
+                        , dictFormK     = ""
                         , masuForm      = ""
+                        , masuFormK     = ""
                         , teForm        = ""
+                        , teFormK       = ""
                         , naiForm       = ""
+                        , naiFormK      = ""
                         , conjTags      = ""
                         }
 instance T.FromTable JConj where
@@ -148,10 +156,14 @@ instance T.FromTable JConj where
         JConj
             <$> m T..: "Num"
             <*> (T.unpack <$> m T..: "Reference")
-            <*> (T.unpack <$> m T..: "Dictionary form")
+            <*> (T.unpack <$> m T..: "Dict form")
+            <*> (T.unpack <$> m T..: "Dict kanji")
             <*> (T.unpack <$> m T..: "ます-form")
+            <*> (T.unpack <$> m T..: "ます kanji")
             <*> (T.unpack <$> m T..: "て-form")
+            <*> (T.unpack <$> m T..: "て kanji")
             <*> (T.unpack <$> m T..: "ない-form")
+            <*> (T.unpack <$> m T..: "ない kanji")
             <*> (T.unpack <$> m T..: "Tags")
 
 instance ToRecord JConj where
@@ -159,9 +171,13 @@ instance ToRecord JConj where
                             [ toField conjNumber
                             , toField conjReference
                             , toField dictForm
+                            , toField dictFormK
                             , toField masuForm
+                            , toField masuFormK
                             , toField teForm
+                            , toField teFormK
                             , toField naiForm
+                            , toField naiFormK
                             , toField conjTags
                             ]
 
