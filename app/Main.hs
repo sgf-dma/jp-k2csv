@@ -6,17 +6,25 @@ module Main where
 import Data.Char
 import qualified Data.String as S
 import qualified Data.List as L
+import qualified Data.Attoparsec.Text        as A
+import qualified Data.Text.Encoding as T
+import qualified Data.ByteString    as BS
 import Data.List.Split
 import Data.Csv
 import qualified Data.Text              as T
+import qualified Data.Text.IO           as T
 import qualified Data.ByteString.Lazy   as BL
 import qualified Data.Map as M
 import Control.Arrow (first)
 import Control.Monad.State
+import Control.Applicative
 import Turtle.Shell
 import Turtle.Line
+import Data.List.Extra (snoc)
+import Data.Maybe
 
 import qualified Sgf.Data.Text.Table    as T
+import Sgf.Data.Text.Table.Parse
 import Sgf.JPWords.Checks
 
 
@@ -239,6 +247,100 @@ checkRefs           = view . bothKanjiRefAndRel . onlyRefs
     onlyRefs        = select . textToLines . S.fromString . reference
                         <=< select <=< select
 
+inConjTags :: T.Text -> M.Map Int [JConj] -> M.Map Int [JConj]
+inConjTags t        = M.filter $ all ((t `elem`) . toWords . T.pack . conjTags)
+
+toWords :: T.Text -> [T.Text]
+toWords         = either (const []) id . A.parseOnly
+    ( some $    A.takeWhile1 (not . A.isHorizontalSpace)
+             <* A.takeWhile isSpace )
+
+-- Take input till separator parser succeeds. Predicate is used to identify
+-- character at which to try to match separator parser. Separator is dropped
+-- from result. Chunks not ending on separator are _not_ included.
+takeTillSep :: (Char -> Bool) -> A.Parser T.Text -> A.Parser T.Text
+takeTillSep p sepP  =
+    (fmap T.concat . many $ T.append
+            <$> whenNotP sepP (T.singleton <$> A.anyChar)
+            <*> A.takeWhile p)
+        <* sepP
+
+-- Take input till string parser succeeds. Predicate is used to identify
+-- character at which to try to match string parser. Matched string is
+-- _included_ in result (it will be at the end of result text). Chunks not
+-- ending on matched string are _not_ included.
+takeTillStr :: (Char -> Bool) -> A.Parser T.Text -> A.Parser T.Text
+takeTillStr p strP  =
+     fmap T.concat . snoc
+        <$> (many $ T.append
+                <$> whenNotP strP (T.singleton <$> A.anyChar)
+                <*> A.takeWhile p)
+        <*> strP
+
+singleWordSuf :: T.Text -> A.Parser T.Text -> T.Text -> [T.Text]
+singleWordSuf suf sepP = either (const []) id
+    . A.parseOnly (some (takeTillSep (/= T.head suf) sepP) <* A.endOfInput)
+
+-- Generate several words with different suffixes in place of original.
+replaceSuffix :: T.Text -> [T.Text] -> T.Text -> [T.Text]
+replaceSuffix sf rs t = do
+    r <- rs
+    w <- singleWordSuf sf
+            (   A.string (sf `T.append` ", ")
+            <|> A.string sf <* A.endOfInput)
+            t
+    return (w `T.append` r)
+
+masuForms :: JConj -> [T.Text]
+masuForms x
+  | null (masuFormK x)  = let t = T.pack (masuForm x)  in t : f t
+  | otherwise           = let t = T.pack (masuFormK x) in t : f t
+  where
+    f :: T.Text -> [T.Text]
+    f               = "ます" `replaceSuffix`
+                        [ "たい"
+                        , "たくない"
+                        , "たかった"
+                        , "たくなかった"
+                        ]
+
+teForms :: JConj -> [T.Text]
+teForms x
+  | null (teFormK x)  = f (T.pack (teForm x))
+  | otherwise           = f (T.pack (teFormK x))
+  where
+    f :: T.Text -> [T.Text]
+    f               = "て" `replaceSuffix`
+                        [ "てください"
+                        , "てもいいです"
+                        , "てはいけません"
+                        ]
+
+naiForms :: JConj -> [T.Text]
+naiForms x
+  | null (naiFormK x)  = f (T.pack (naiForm x))
+  | otherwise           = f (T.pack (naiFormK x))
+  where
+    f :: T.Text -> [T.Text]
+    f               = "ない" `replaceSuffix`
+                        [ "ないでください"
+                        , "なくてもいいです"
+                        , "なければなりません"
+                        ]
+
+(<++>) :: Applicative f => f [a] -> f [a] -> f [a]
+(<++>)              = liftA2 (++)
+
+generateForms :: M.Map Int [JConj] -> [T.Text]
+generateForms       = M.fold go []
+  where
+    go :: [JConj] -> [T.Text] -> [T.Text]
+    go x zs = concatMap (masuForms <++> teForms <++> naiForms) x ++ zs
+
+putStrUtf8 :: T.Text -> IO ()
+putStrUtf8          = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
+
+
 main :: IO ()
 main = do
     m <-  T.decodeFileL "../words-mnn.txt" >>=
@@ -253,6 +355,8 @@ main = do
             either (\e -> error $ "Can't parse JConj table " ++ e)
                    (return . buildMap conjNumber)
     checkMap mconj
+    --mapM putStrUtf8 $ generateForms mconj
+    T.writeFile "../test-forms.txt" (T.unlines (generateForms mconj))
     writeMap "conj.csv" mconj
 
     kw <- readFile "../kana.txt"

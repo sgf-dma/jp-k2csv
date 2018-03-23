@@ -10,6 +10,8 @@ module Sgf.Data.Text.Table.Parse
     , rawTable
     , rawTables
     , decodeFileRaw
+
+    , whenNotP
     )
   where
 
@@ -19,6 +21,7 @@ import Control.Applicative
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
 import qualified Data.Attoparsec.Text   as A
+import Data.List.Extra
 
 
 witnessM :: Functor m => m (Tagged s b) -> m s -> m b
