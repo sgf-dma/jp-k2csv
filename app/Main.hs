@@ -296,6 +296,15 @@ prependConjNum :: T.Text -> JConj -> T.Text
 prependConjNum t    = let f = flip T.append
                       in  f t . f ", " . T.pack . show . conjNumber
 
+dictForms :: JConj -> [T.Text]
+dictForms           = f . T.pack . dictForm >>= mapM prependConjNum
+  where
+    f :: T.Text -> [T.Text]
+    f x             = map (x `T.append`)
+                        [ "前に"
+                        , "ことができます"
+                        ]
+
 masuForms :: JConj -> [T.Text]
 masuForms x         = let t = T.pack (masuForm x)
                       in  mapM prependConjNum (t : f t) x
@@ -348,7 +357,10 @@ generateForms :: M.Map Int [JConj] -> [T.Text]
 generateForms       = M.fold go []
   where
     go :: [JConj] -> [T.Text] -> [T.Text]
-    go x zs = concatMap (masuForms <++> teForms <++> naiForms) x ++ zs
+    go x zs = concatMap
+                    ( masuForms <++> teForms <++> naiForms <++> dictForms )
+                    x
+                ++ zs
 
 putStrUtf8 :: T.Text -> IO ()
 putStrUtf8          = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
