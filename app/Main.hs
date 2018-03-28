@@ -309,13 +309,25 @@ masuForms x
 teForms :: JConj -> [T.Text]
 teForms x
   | null (teFormK x)  = f (T.pack (teForm x))
-  | otherwise           = f (T.pack (teFormK x))
+  | otherwise           = (++) <$> f <*> f' $ (T.pack (teFormK x))
   where
     f :: T.Text -> [T.Text]
     f               = "て" `replaceSuffix`
                         [ "てください"
                         , "てもいいです"
                         , "てはいけません"
+                        , "ています"
+                        , "たことがあります"
+                        , "たり"
+                        ]
+    f' :: T.Text -> [T.Text]
+    f'              = "で" `replaceSuffix`
+                        [ "でください"
+                        , "でもいいです"
+                        , "ではいけません"
+                        , "でいます"
+                        , "だことがあります"
+                        , "だり"
                         ]
 
 naiForms :: JConj -> [T.Text]
