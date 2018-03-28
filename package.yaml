@@ -19,6 +19,7 @@ dependencies: &deps
   - text
   - unordered-containers
   - hashable
+  - random-shuffle
   - either
   - tagged
   - turtle

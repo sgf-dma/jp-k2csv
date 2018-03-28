@@ -27,6 +27,7 @@ import qualified Sgf.Data.Text.Table    as T
 import Sgf.Data.Text.Table.Parse
 import Sgf.JPWords.Checks
 
+import System.Random.Shuffle
 
 -- | One step in recursively string parsing: if there is no more input left,
 -- finish with current result. Otherwise, try to read on more value. Here
@@ -304,6 +305,7 @@ masuForms x
                         , "たくなかった"
                         ]
 
+-- FIXME: て and で forms
 teForms :: JConj -> [T.Text]
 teForms x
   | null (teFormK x)  = f (T.pack (teForm x))
@@ -340,6 +342,8 @@ generateForms       = M.fold go []
 putStrUtf8 :: T.Text -> IO ()
 putStrUtf8          = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
 
+randomWrite :: FilePath -> [T.Text] -> IO ()
+randomWrite fn xs   = shuffleM xs >>= T.writeFile fn . T.unlines
 
 main :: IO ()
 main = do
@@ -356,7 +360,9 @@ main = do
                    (return . buildMap conjNumber)
     checkMap mconj
     --mapM putStrUtf8 $ generateForms mconj
-    T.writeFile "../test-forms.txt" (T.unlines (generateForms mconj))
+    let conjForms = generateForms mconj
+    T.writeFile "../test-forms.txt" (T.unlines conjForms)
+    randomWrite "../random-forms.txt" conjForms
     writeMap "conj.csv" mconj
 
     kw <- readFile "../kana.txt"
