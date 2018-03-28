@@ -292,10 +292,13 @@ replaceSuffix sf rs t = do
             t
     return (w `T.append` r)
 
+prependConjNum :: T.Text -> JConj -> T.Text
+prependConjNum t    = let f = flip T.append
+                      in  f t . f ", " . T.pack . show . conjNumber
+
 masuForms :: JConj -> [T.Text]
-masuForms x
-  | null (masuFormK x)  = let t = T.pack (masuForm x)  in t : f t
-  | otherwise           = let t = T.pack (masuFormK x) in t : f t
+masuForms x         = let t = T.pack (masuForm x)
+                      in  mapM prependConjNum (t : f t) x
   where
     f :: T.Text -> [T.Text]
     f               = "ます" `replaceSuffix`
@@ -307,9 +310,7 @@ masuForms x
 
 -- FIXME: て and で forms
 teForms :: JConj -> [T.Text]
-teForms x
-  | null (teFormK x)  = f (T.pack (teForm x))
-  | otherwise           = (++) <$> f <*> f' $ (T.pack (teFormK x))
+teForms             = f . T.pack . teForm >>= mapM prependConjNum
   where
     f :: T.Text -> [T.Text]
     f               = "て" `replaceSuffix`
@@ -331,9 +332,7 @@ teForms x
                         ]
 
 naiForms :: JConj -> [T.Text]
-naiForms x
-  | null (naiFormK x)  = f (T.pack (naiForm x))
-  | otherwise           = f (T.pack (naiFormK x))
+naiForms            = f . T.pack . naiForm >>= mapM prependConjNum
   where
     f :: T.Text -> [T.Text]
     f               = "ない" `replaceSuffix`
