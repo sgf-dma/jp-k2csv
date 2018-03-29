@@ -248,8 +248,8 @@ checkRefs           = view . bothKanjiRefAndRel . onlyRefs
     onlyRefs        = select . textToLines . S.fromString . reference
                         <=< select <=< select
 
-inConjTags :: T.Text -> M.Map Int [JConj] -> M.Map Int [JConj]
-inConjTags t        = M.filter $ all ((t `elem`) . toWords . T.pack . conjTags)
+inConjTags :: T.Text -> JConj -> Bool
+inConjTags t        = (t `elem`) . toWords . T.pack . conjTags
 
 toWords :: T.Text -> [T.Text]
 toWords         = either (const []) id . A.parseOnly
@@ -299,79 +299,109 @@ prependConjNum t    = let f = flip T.append
 appendConjNum :: T.Text -> JConj -> T.Text
 appendConjNum t     = T.append t . T.append ", " . T.pack . show . conjNumber
 
-dictForms :: JConj -> [T.Text]
-dictForms           = f . T.pack . dictForm >>= mapM appendConjNum
+genDictForms :: Bool -> JConj -> [T.Text]
+genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
   where
-    f :: T.Text -> [T.Text]
-    f x             = map (x `T.append`)
+    dictStem :: JConj -> T.Text
+    dictStem
+      | isKanji     = T.pack . dictFormK
+      | otherwise   = T.pack . dictForm
+    gen :: T.Text -> [T.Text]
+    gen x           = map (x `T.append`)
                         [ "前に"
                         , "ことができます"
                         ]
 
-masuForms :: JConj -> [T.Text]
-masuForms x         = let t = T.pack (masuForm x)
-                      in  mapM appendConjNum (t : f t) x
+genMasuForms :: Bool -> JConj -> [T.Text]
+genMasuForms isKanji x = let t = masuStem x
+                         in  mapM appendConjNum (t : gen t) x
   where
-    f :: T.Text -> [T.Text]
-    f               = "ます" `replaceSuffix`
+    masuStem :: JConj -> T.Text
+    masuStem
+      | isKanji     = T.pack . masuFormK
+      | otherwise   = T.pack . masuForm
+    gen :: T.Text -> [T.Text]
+    gen             = "ます" `replaceSuffix`
                         [ "たい"
                         , "たくない"
                         , "たかった"
                         , "たくなかった"
                         ]
 
-teForms :: JConj -> [T.Text]
-teForms             = f . T.pack . teForm >>= mapM appendConjNum
+genTeForms :: Bool -> JConj -> [T.Text]
+genTeForms isKanji  = (gen <++> gen') . teStem >>= mapM appendConjNum
   where
-    f :: T.Text -> [T.Text]
-    f               = "て" `replaceSuffix`
+    teStem :: JConj -> T.Text
+    teStem
+      | isKanji     = T.pack . teFormK
+      | otherwise   = T.pack . teForm
+    gen :: T.Text -> [T.Text]
+    gen             = "て" `replaceSuffix`
                         [ "てください"
                         , "てもいいです"
                         , "てはいけません"
                         , "ています"
                         ]
-    f' :: T.Text -> [T.Text]
-    f'              = "で" `replaceSuffix`
+    gen' :: T.Text -> [T.Text]
+    gen'            = "で" `replaceSuffix`
                         [ "でください"
                         , "でもいいです"
                         , "ではいけません"
                         , "でいます"
                         ]
 
-taForms :: JConj -> [T.Text]
-taForms             = f . T.pack . teForm >>= mapM appendConjNum
+genTaForms :: Bool -> JConj -> [T.Text]
+genTaForms isKanji  = (gen <++> gen') . taStem >>= mapM appendConjNum
   where
-    f :: T.Text -> [T.Text]
-    f               = "て" `replaceSuffix`
+    taStem :: JConj -> T.Text
+    taStem
+      | isKanji     = T.pack . teFormK
+      | otherwise   = T.pack . teForm
+    gen :: T.Text -> [T.Text]
+    gen             = "て" `replaceSuffix`
                         [ "たことがあります"
                         , "たり"
                         ]
-    f' :: T.Text -> [T.Text]
-    f'              = "で" `replaceSuffix`
+    gen' :: T.Text -> [T.Text]
+    gen'            = "で" `replaceSuffix`
                         [ "だことがあります"
                         , "だり"
                         ]
 
-naiForms :: JConj -> [T.Text]
-naiForms            = f . T.pack . naiForm >>= mapM appendConjNum
+genNaiForms :: Bool -> JConj -> [T.Text]
+genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
   where
-    f :: T.Text -> [T.Text]
-    f               = "ない" `replaceSuffix`
+    naiStem :: JConj -> T.Text
+    naiStem
+      | isKanji     = T.pack . naiFormK
+      | otherwise   = T.pack . naiForm
+    gen :: T.Text -> [T.Text]
+    gen             = "ない" `replaceSuffix`
                         [ "ないでください"
                         , "なくてもいいです"
                         , "なければなりません"
                         ]
 
+infixl 3 <++>
 (<++>) :: Applicative f => f [a] -> f [a] -> f [a]
 (<++>)              = liftA2 (++)
 
-generateForms :: M.Map Int [JConj] -> [T.Text]
-generateForms       = M.fold go []
+generateForms :: Bool -> M.Map Int [JConj] -> [T.Text]
+generateForms isKanjiAlways = M.fold go []
   where
+    isKanji :: JConj -> Bool
+    isKanji         = (isKanjiAlways ||) <$> inConjTags "kanji"
     go :: [JConj] -> [T.Text] -> [T.Text]
     go x zs = concatMap
-                    (   masuForms <++> teForms <++> taForms
-                    <++> naiForms <++> dictForms )
+                    (    flip genDictForms  <*> isKanji
+                    <++> flip genMasuForms  <*> isKanji
+                    <++> flip genTeForms    <*> isKanji
+                    <++> flip genTaForms    <*> isKanji
+                    <++> flip genNaiForms   <*> isKanji
+                    )
+
+                    {-(   masuForms <++> teForms <++> genTaForms False
+                    <++> naiForms <++> genDictForms False )-}
                     x
                 ++ zs
 
@@ -395,10 +425,13 @@ main = do
             either (\e -> error $ "Can't parse JConj table " ++ e)
                    (return . buildMap conjNumber)
     checkMap mconj
-    --mapM putStrUtf8 $ generateForms mconj
-    let conjForms = generateForms mconj
-    T.writeFile "../test-forms.txt" (T.unlines conjForms)
-    randomWrite "../random-forms.txt" conjForms
+    let conjFormsQ = generateForms False mconj
+        conjFormsA = generateForms True mconj
+    T.writeFile "../test-forms.txt" (T.unlines conjFormsQ)
+    T.writeFile "../test-formsA.txt" (T.unlines conjFormsA)
+    (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ conjFormsA
+    T.writeFile "../random-formsQ.txt" (T.unlines randFormsQ)
+    T.writeFile "../random-formsA.txt" (T.unlines randFormsA)
     writeMap "conj.csv" mconj
 
     kw <- readFile "../kana.txt"
