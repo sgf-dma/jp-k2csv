@@ -296,8 +296,11 @@ prependConjNum :: T.Text -> JConj -> T.Text
 prependConjNum t    = let f = flip T.append
                       in  f t . f ", " . T.pack . show . conjNumber
 
+appendConjNum :: T.Text -> JConj -> T.Text
+appendConjNum t     = T.append t . T.append ", " . T.pack . show . conjNumber
+
 dictForms :: JConj -> [T.Text]
-dictForms           = f . T.pack . dictForm >>= mapM prependConjNum
+dictForms           = f . T.pack . dictForm >>= mapM appendConjNum
   where
     f :: T.Text -> [T.Text]
     f x             = map (x `T.append`)
@@ -307,7 +310,7 @@ dictForms           = f . T.pack . dictForm >>= mapM prependConjNum
 
 masuForms :: JConj -> [T.Text]
 masuForms x         = let t = T.pack (masuForm x)
-                      in  mapM prependConjNum (t : f t) x
+                      in  mapM appendConjNum (t : f t) x
   where
     f :: T.Text -> [T.Text]
     f               = "ます" `replaceSuffix`
@@ -318,7 +321,7 @@ masuForms x         = let t = T.pack (masuForm x)
                         ]
 
 teForms :: JConj -> [T.Text]
-teForms             = f . T.pack . teForm >>= mapM prependConjNum
+teForms             = f . T.pack . teForm >>= mapM appendConjNum
   where
     f :: T.Text -> [T.Text]
     f               = "て" `replaceSuffix`
@@ -336,7 +339,7 @@ teForms             = f . T.pack . teForm >>= mapM prependConjNum
                         ]
 
 taForms :: JConj -> [T.Text]
-taForms             = f . T.pack . teForm >>= mapM prependConjNum
+taForms             = f . T.pack . teForm >>= mapM appendConjNum
   where
     f :: T.Text -> [T.Text]
     f               = "て" `replaceSuffix`
@@ -350,7 +353,7 @@ taForms             = f . T.pack . teForm >>= mapM prependConjNum
                         ]
 
 naiForms :: JConj -> [T.Text]
-naiForms            = f . T.pack . naiForm >>= mapM prependConjNum
+naiForms            = f . T.pack . naiForm >>= mapM appendConjNum
   where
     f :: T.Text -> [T.Text]
     f               = "ない" `replaceSuffix`
