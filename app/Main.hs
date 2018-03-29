@@ -317,7 +317,6 @@ masuForms x         = let t = T.pack (masuForm x)
                         , "たくなかった"
                         ]
 
--- FIXME: て and で forms
 teForms :: JConj -> [T.Text]
 teForms             = f . T.pack . teForm >>= mapM prependConjNum
   where
@@ -327,8 +326,6 @@ teForms             = f . T.pack . teForm >>= mapM prependConjNum
                         , "てもいいです"
                         , "てはいけません"
                         , "ています"
-                        , "たことがあります"
-                        , "たり"
                         ]
     f' :: T.Text -> [T.Text]
     f'              = "で" `replaceSuffix`
@@ -336,7 +333,19 @@ teForms             = f . T.pack . teForm >>= mapM prependConjNum
                         , "でもいいです"
                         , "ではいけません"
                         , "でいます"
-                        , "だことがあります"
+                        ]
+
+taForms :: JConj -> [T.Text]
+taForms             = f . T.pack . teForm >>= mapM prependConjNum
+  where
+    f :: T.Text -> [T.Text]
+    f               = "て" `replaceSuffix`
+                        [ "たことがあります"
+                        , "たり"
+                        ]
+    f' :: T.Text -> [T.Text]
+    f'              = "で" `replaceSuffix`
+                        [ "だことがあります"
                         , "だり"
                         ]
 
@@ -358,7 +367,8 @@ generateForms       = M.fold go []
   where
     go :: [JConj] -> [T.Text] -> [T.Text]
     go x zs = concatMap
-                    ( masuForms <++> teForms <++> naiForms <++> dictForms )
+                    (   masuForms <++> teForms <++> taForms
+                    <++> naiForms <++> dictForms )
                     x
                 ++ zs
 
