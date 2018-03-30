@@ -25,6 +25,7 @@ dependencies: &deps
   - turtle
   - extra
   - optparse-applicative
+  - text-show
 
 ghc-options: &ghc-opts
   - -Wall
