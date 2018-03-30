@@ -303,9 +303,9 @@ genDictForms :: Bool -> JConj -> [T.Text]
 genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
   where
     dictStem :: JConj -> T.Text
-    dictStem
-      | isKanji     = T.pack . dictFormK
-      | otherwise   = T.pack . dictForm
+    dictStem x
+      | not isKanji || null (dictFormK x)   = T.pack (dictForm x)
+      | otherwise                           = T.pack (dictFormK x)
     gen :: T.Text -> [T.Text]
     gen x           = map (x `T.append`)
                         [ "前に"
@@ -317,9 +317,9 @@ genMasuForms isKanji x = let t = masuStem x
                          in  mapM appendConjNum (t : gen t) x
   where
     masuStem :: JConj -> T.Text
-    masuStem
-      | isKanji     = T.pack . masuFormK
-      | otherwise   = T.pack . masuForm
+    masuStem x
+      | not isKanji || null (masuFormK x)   = T.pack (masuForm x)
+      | otherwise                           = T.pack (masuFormK x)
     gen :: T.Text -> [T.Text]
     gen             = "ます" `replaceSuffix`
                         [ "たい"
@@ -332,9 +332,9 @@ genTeForms :: Bool -> JConj -> [T.Text]
 genTeForms isKanji  = (gen <++> gen') . teStem >>= mapM appendConjNum
   where
     teStem :: JConj -> T.Text
-    teStem
-      | isKanji     = T.pack . teFormK
-      | otherwise   = T.pack . teForm
+    teStem x
+      | not isKanji || null (teFormK x) = T.pack (teForm x)
+      | otherwise                       = T.pack (teFormK x)
     gen :: T.Text -> [T.Text]
     gen             = "て" `replaceSuffix`
                         [ "てください"
@@ -354,9 +354,9 @@ genTaForms :: Bool -> JConj -> [T.Text]
 genTaForms isKanji  = (gen <++> gen') . taStem >>= mapM appendConjNum
   where
     taStem :: JConj -> T.Text
-    taStem
-      | isKanji     = T.pack . teFormK
-      | otherwise   = T.pack . teForm
+    taStem x
+      | not isKanji || null (teFormK x) = T.pack (teForm x)
+      | otherwise                       = T.pack (teFormK x)
     gen :: T.Text -> [T.Text]
     gen             = "て" `replaceSuffix`
                         [ "たことがあります"
@@ -372,9 +372,9 @@ genNaiForms :: Bool -> JConj -> [T.Text]
 genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
   where
     naiStem :: JConj -> T.Text
-    naiStem
-      | isKanji     = T.pack . naiFormK
-      | otherwise   = T.pack . naiForm
+    naiStem x
+      | not isKanji || null (naiFormK x)    = T.pack (naiForm x)
+      | otherwise                           = T.pack (naiFormK x)
     gen :: T.Text -> [T.Text]
     gen             = "ない" `replaceSuffix`
                         [ "ないでください"
