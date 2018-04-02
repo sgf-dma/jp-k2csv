@@ -19,7 +19,6 @@ dependencies: &deps
   - text
   - unordered-containers
   - hashable
-  - random-shuffle
   - either
   - tagged
   - turtle
@@ -52,10 +51,16 @@ executables:
     source-dirs: app
     <<: *exe-ghc-opts
     dependencies:
-      - base
       - random
       - random-shuffle
       - directory
+  verb-forms:
+    main: verb-forms.hs
+    source-dirs: app
+    <<: *exe-ghc-opts
+    dependencies:
+      - random-shuffle
+      - k2csv
 
 tests:
   k2csv-test:
