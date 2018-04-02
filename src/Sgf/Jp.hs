@@ -26,33 +26,32 @@ import Sgf.Jp.Types
 import Sgf.JPWords.Checks
 
 buildMap :: (a -> Int) -> [a] -> M.Map Int [a]
-buildMap toKey      = foldr (\x -> M.insertWith (++) (toKey x) [x]) M.empty
+buildMap toKey = foldr (\x -> M.insertWith (++) (toKey x) [x]) M.empty
 
 writeMap :: ToRecord a => FilePath -> M.Map Int [a] -> IO ()
-writeMap f          = BL.writeFile f . encode . concat . M.elems
+writeMap f = BL.writeFile f . encode . concat . M.elems
 
 checkMap :: M.Map Int [a] -> IO ()
-checkMap m          = do
+checkMap m = do
     let ds = M.filter ((> 1) . length) m
     print $ "Duplicate numbers: " ++ show (M.keys ds)
     print $ "Max number: " ++ show (fst $ M.findMax m)
 
 -- | Possible foreign words. Though, filtering may be greatly improved..
 possibleForeign :: M.Map Int [JWord] -> M.Map Int [JWord]
-possibleForeign     = M.map (filter (all isAscii . origin))
+possibleForeign = M.map (filter (all isAscii . origin))
 
 checkRefs :: M.Map Int [JWord] -> IO ()
-checkRefs           = view . bothKanjiRefAndRel . onlyRefs
+checkRefs = view . bothKanjiRefAndRel . onlyRefs
   where
     onlyRefs :: M.Map Int [JWord] -> Shell Line
-    onlyRefs        = select . textToLines . S.fromString . reference
-                        <=< select <=< select
+    onlyRefs =
+        select . textToLines . S.fromString . reference <=< select <=< select
 
 toWords :: T.Text -> [T.Text]
-toWords         = either (const []) id . A.parseOnly
-    ( some $    A.takeWhile1 (not . A.isHorizontalSpace)
-             <* A.takeWhile isSpace )
+toWords = either (const []) id . A.parseOnly
+    (some $ A.takeWhile1 (not . A.isHorizontalSpace) <* A.takeWhile isSpace)
 
 inConjTags :: T.Text -> JConj -> Bool
-inConjTags t        = (t `elem`) . toWords . T.pack . conjTags
+inConjTags t = (t `elem`) . toWords . T.pack . conjTags
 

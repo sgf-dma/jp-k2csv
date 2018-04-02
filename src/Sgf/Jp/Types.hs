@@ -32,12 +32,7 @@ data JKana          = JKana
   deriving (Show, Read)
 
 defJKana :: JKana
-defJKana            = JKana
-                        { hiragana  = ""
-                        , katakana  = ""
-                        , syllable  = ""
-                        , desc      = ""
-                        }
+defJKana = JKana {hiragana = "", katakana = "", syllable = "", desc = ""}
 
 instance Serialize JKana where
     fromString k    = flip runStateT k $ do
@@ -71,17 +66,17 @@ data JWord          = JWord
   deriving (Show, Read)
 
 defJWord :: JWord
-defJWord            = JWord
-                        { number        = 0
-                        , reference     = ""
-                        , reading1      = ""
-                        , reading2      = ""
-                        , origin        = ""
-                        , translate     = ""
-                        , description   = ""
-                        , seeAlso       = ""
-                        , tags          = ""
-                        }
+defJWord = JWord
+    { number      = 0
+    , reference   = ""
+    , reading1    = ""
+    , reading2    = ""
+    , origin      = ""
+    , translate   = ""
+    , description = ""
+    , seeAlso     = ""
+    , tags        = ""
+    }
 
 instance T.FromTable JWord where
     parseTable      = T.withTableText "JWord" $ \m ->
@@ -125,33 +120,33 @@ data JConj          = JConj
   deriving (Show, Read)
 
 defJConj :: JConj
-defJConj            = JConj
-                        { conjNumber    = 0
-                        , conjReference = ""
-                        , dictForm      = ""
-                        , dictFormK     = ""
-                        , masuForm      = ""
-                        , masuFormK     = ""
-                        , teForm        = ""
-                        , teFormK       = ""
-                        , naiForm       = ""
-                        , naiFormK      = ""
-                        , conjTags      = ""
-                        }
+defJConj = JConj
+    { conjNumber    = 0
+    , conjReference = ""
+    , dictForm      = ""
+    , dictFormK     = ""
+    , masuForm      = ""
+    , masuFormK     = ""
+    , teForm        = ""
+    , teFormK       = ""
+    , naiForm       = ""
+    , naiFormK      = ""
+    , conjTags      = ""
+    }
 testJConj :: JConj
-testJConj            = JConj
-                        { conjNumber    = 1111
-                        , conjReference = "M-Test-"
-                        , dictForm      = "Dict-form"
-                        , dictFormK     = "Dict-kanji-form"
-                        , masuForm      = "Masu-form-ます"
-                        , masuFormK     = "Masu-kanji-form-ます"
-                        , teForm        = "Te-form-て"
-                        , teFormK       = "Te-kanji-form-て"
-                        , naiForm       = "Nai-form-ない"
-                        , naiFormK      = "Nai-kanji-form-ない"
-                        , conjTags      = "test"
-                        }
+testJConj = JConj
+    { conjNumber    = 1111
+    , conjReference = "M-Test-"
+    , dictForm      = "Dict-form"
+    , dictFormK     = "Dict-kanji-form"
+    , masuForm      = "Masu-form-ます"
+    , masuFormK     = "Masu-kanji-form-ます"
+    , teForm        = "Te-form-て"
+    , teFormK       = "Te-kanji-form-て"
+    , naiForm       = "Nai-form-ない"
+    , naiFormK      = "Nai-kanji-form-ない"
+    , conjTags      = "test"
+    }
 
 instance T.FromTable JConj where
     parseTable      = T.withTableText "JConj" $ \m ->

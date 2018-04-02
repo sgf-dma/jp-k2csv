@@ -13,17 +13,17 @@ import Sgf.Data.Text.OldTable
 
 main :: IO ()
 main = do
-    m <-  T.decodeFileL "../words-mnn.txt" >>=
-            either (\e -> error $ "Can't parse JWords table " ++ e)
-                   (return . buildMap number)
+    m <- T.decodeFileL "../words-mnn.txt" >>= either
+        (\e -> error $ "Can't parse JWords table " ++ e)
+        (return . buildMap number)
     checkMap m
     checkRefs m
     writeMap "foreign.csv" (possibleForeign m)
-    writeMap "words.csv" m
+    writeMap "words.csv"   m
 
-    mconj <-  T.decodeFileL "../conjugations.txt" >>=
-            either (\e -> error $ "Can't parse JConj table " ++ e)
-                   (return . buildMap conjNumber)
+    mconj <- T.decodeFileL "../conjugations.txt" >>= either
+        (\e -> error $ "Can't parse JConj table " ++ e)
+        (return . buildMap conjNumber)
     checkMap mconj
     writeMap "conj.csv" mconj
 
