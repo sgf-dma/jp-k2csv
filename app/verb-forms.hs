@@ -85,6 +85,10 @@ tHeadMay t | T.null t  = Nothing
 -- delimiter. The last word is the one having only suffix without word
 -- delimeter at the end. No further input are parsed after last word. Word
 -- suffix may be /empty/.
+--
+-- FIXME: If last matching word ends at `wordSep` it won't be found. [parser]
+-- FIXME: If wordEnd encountered before first match, no further words are
+-- searched. [parser]
 wordsWithSuffix :: T.Text -> T.Text -> [T.Text]
 wordsWithSuffix sf = either (const []) id . A.parseOnly
     (splitUntil
@@ -119,10 +123,28 @@ newtype VForm       = VForm {vforms :: [T.Text]}
 vFormToText :: VForm -> T.Text
 vFormToText (VForm xs) = T.concat . L.intersperse ", " $ xs
 
+type Writing        = [T.Text]
+
+writingToText :: [T.Text] -> T.Text
+writingToText = T.concat . L.intersperse ", "
+
+data VForm2         = VForm2
+                        { kanaForm2     :: Writing
+                        , kanjiForm2    :: Writing
+                        , translForm2   :: Writing
+                        , vNum2         :: Int
+                        }
+  deriving (Show)
+
+data VFormSpec       = VFormSpec
+                        { stem :: JConj -> VForm2
+                        , newSuf :: T.Text
+                        , transMod :: T.Text -> T.Text
+                        }
+
 appendConjNum :: VForm -> JConj -> VForm
 appendConjNum VForm {..} = VForm . snoc vforms . T.pack . show . conjNumber
 
--- FIXME: dict form shouldn't work with several kanji.
 genDictForms :: Bool -> JConj -> [VForm]
 genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
   where
@@ -131,8 +153,8 @@ genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
                | otherwise                         = T.pack (dictFormK x)
     gen :: T.Text -> [VForm]
     gen = "" `replaceSuffix` ["前に", "ことができます"]
+    --gen = "" `replaceSuffix` [""]
 
--- FIXME: The same problem, as with dict forms?
 genMasuForms :: Bool -> JConj -> [VForm]
 genMasuForms isKanji w =
     let t = masuStem w in mapM appendConjNum (VForm [t] : gen t) w
@@ -162,8 +184,154 @@ genTaForms isKanji = (gen <++> gen') . taStem >>= mapM appendConjNum
              | otherwise                       = T.pack (teFormK x)
     gen :: T.Text -> [VForm]
     gen = "て" `replaceSuffix` ["たことがあります", "たり"]
+    --gen = "て" `replaceSuffix` ["た"]
     gen' :: T.Text -> [VForm]
     gen' = "で" `replaceSuffix` ["だことがあります", "だり"]
+    --gen' = "で" `replaceSuffix` ["だ"]
+
+
+
+teStem :: JConj -> VForm2
+teStem x =
+    VForm2
+        { kanaForm2     = gen . T.pack . teForm $ x
+        , kanjiForm2    = gen . T.pack . kanjiStem $ x
+        , translForm2   = [T.pack . conjTranslate $ x]
+        , vNum2         = conjNumber x
+        }
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (teFormK x)  = teForm y
+                | otherwise         = teFormK y
+    gen :: T.Text -> [T.Text]
+    gen     = wordsWithSuffix "て"
+
+teStem' :: JConj -> VForm2
+teStem' x =
+    VForm2
+        { kanaForm2     = gen . T.pack . teForm $ x
+        , kanjiForm2    = gen . T.pack . kanjiStem $ x
+        , translForm2   = [T.pack . conjTranslate $ x]
+        , vNum2         = conjNumber x
+        }
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (teFormK x)  = teForm y
+                | otherwise         = teFormK y
+    gen :: T.Text -> [T.Text]
+    gen     = wordsWithSuffix "で"
+
+naiStem :: JConj -> VForm2
+naiStem x =
+    VForm2
+        { kanaForm2     = gen . T.pack . naiForm $ x
+        , kanjiForm2    = gen . T.pack . kanjiStem $ x
+        , translForm2   = [T.pack . conjTranslate $ x]
+        , vNum2         = conjNumber x
+        }
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (naiFormK x) = naiForm y
+                | otherwise         = naiFormK y
+    gen :: T.Text -> [T.Text]
+    gen     = wordsWithSuffix "ない"
+
+dictStem :: JConj -> VForm2
+dictStem x =
+    VForm2
+        { kanaForm2     = gen . T.pack . dictForm $ x
+        , kanjiForm2    = gen . T.pack . kanjiStem $ x
+        , translForm2   = [T.pack . conjTranslate $ x]
+        , vNum2         = conjNumber x
+        }
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (dictFormK x) = dictForm y
+                | otherwise          = dictFormK y
+    gen :: T.Text -> [T.Text]
+    gen     = wordsWithSuffix ""
+
+masuStem :: JConj -> VForm2
+masuStem x =
+    VForm2
+        { kanaForm2     = gen . T.pack . masuForm $ x
+        , kanjiForm2    = gen . T.pack . kanjiStem $ x
+        , translForm2   = [T.pack . conjTranslate $ x]
+        , vNum2         = conjNumber x
+        }
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (masuFormK x) = masuForm y
+                | otherwise          = masuFormK y
+    gen :: T.Text -> [T.Text]
+    gen     = wordsWithSuffix "ます"
+
+
+sp1 :: VFormSpec
+sp1 = VFormSpec {stem = teStem, newSuf = "ta-koto-ga-arimasu", transMod = (`T.append` "приходилось ли ")}
+
+sp2 :: VFormSpec
+sp2 = VFormSpec {stem = teStem', newSuf = "ta-koto-ga-arimasu", transMod = (`T.append` "приходилось ли ")}
+
+lsp :: [VFormSpec]
+lsp =   [ VFormSpec {stem = dictStem, newSuf = "", transMod = id}
+        , VFormSpec {stem = naiStem , newSuf = "ない", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "た", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "だ", transMod = id}
+        , VFormSpec {stem = naiStem , newSuf = "なかった", transMod = id}
+        ]
+
+oldVFCompat :: [VFormSpec]
+oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
+        , VFormSpec {stem = dictStem, newSuf = "ことができます", transMod = id}
+        , VFormSpec {stem = masuStem, newSuf = "ます", transMod = id}
+        , VFormSpec {stem = masuStem, newSuf = "たい", transMod = id}
+        , VFormSpec {stem = masuStem, newSuf = "たくない", transMod = id}
+        , VFormSpec {stem = masuStem, newSuf = "たかった", transMod = id}
+        , VFormSpec {stem = masuStem, newSuf = "たくなかった", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "てください", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "てもいいです", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "てはいけません", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "ています", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "でください", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "でもいいです", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "ではいけません", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "でいます", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "たことがあります", transMod = id}
+        , VFormSpec {stem = teStem  , newSuf = "たり", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "だことがあります", transMod = id}
+        , VFormSpec {stem = teStem' , newSuf = "だり", transMod = id}
+        , VFormSpec {stem = naiStem , newSuf = "ないでください", transMod = id}
+        , VFormSpec {stem = naiStem , newSuf = "なくてもいいです", transMod = id}
+        , VFormSpec {stem = naiStem , newSuf = "なければなりません", transMod = id}
+        ]
+
+genSpec :: VFormSpec -> JConj -> VForm2
+genSpec VFormSpec {..} x =
+    let v@(VForm2 {..}) = stem x
+    in  v
+            { kanaForm2 =
+                if null kanaForm2 then []
+                    else flip snoc (T.pack . show $ vNum2) . map (`T.append` newSuf) $ kanaForm2
+            , kanjiForm2 =
+                if null kanjiForm2 then []
+                    else flip snoc (T.pack . show $ vNum2) . map (`T.append` newSuf) $ kanjiForm2
+            }
+
+generateForms2 :: Foldable t => [VFormSpec] -> Bool -> t [JConj] -> [T.Text]
+generateForms2 vsp isKanjiAlways = foldr go []
+  where
+    isKanji :: JConj -> Bool
+    isKanji = (isKanjiAlways ||) <$> inConjTags "kanji"
+    go :: [JConj] -> [T.Text] -> [T.Text]
+    go = flip $ foldr ((++) . filter (not . T.null) . go')
+    go' :: JConj -> [T.Text]
+    go'   = do
+        b  <- isKanji
+        vs <- mapM genSpec vsp
+        if b
+          then return (map (writingToText . kanjiForm2) $ vs)
+          else return (map (writingToText . kanaForm2)  $ vs)
 
 genNaiForms :: Bool -> JConj -> [VForm]
 genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
@@ -173,6 +341,7 @@ genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
               | otherwise                        = T.pack (naiFormK x)
     gen :: T.Text -> [VForm]
     gen = "ない" `replaceSuffix` ["ないでください", "なくてもいいです", "なければなりません"]
+    --gen = "ない" `replaceSuffix` ["ない", "なかった"]
 
 infixl 3 <++>
 (<++>) :: Applicative f => f [a] -> f [a] -> f [a]
@@ -210,10 +379,18 @@ main = do
     checkMap mconj
     let conjFormsQ = generateForms False mconj
         conjFormsA = generateForms True mconj
+        conjFormsQ2 = generateForms2 oldVFCompat False mconj
+        conjFormsA2 = generateForms2 oldVFCompat True mconj
     T.writeFile "../test-forms.txt"  (T.unlines conjFormsQ)
     T.writeFile "../test-formsA.txt" (T.unlines conjFormsA)
+    T.writeFile "../test-forms2.txt"  (T.unlines conjFormsQ2)
+    T.writeFile "../test-formsA2.txt" (T.unlines conjFormsA2)
     (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ
                                                             conjFormsA
+    (randFormsQ2, randFormsA2) <- fmap unzip . shuffleM $ zip conjFormsQ2
+                                                            conjFormsA2
     T.writeFile "../random-formsQ.txt" (T.unlines randFormsQ)
     T.writeFile "../random-formsA.txt" (T.unlines randFormsA)
+    T.writeFile "../random-formsQ2.txt" (T.unlines randFormsQ2)
+    T.writeFile "../random-formsA2.txt" (T.unlines randFormsA2)
 

@@ -115,6 +115,7 @@ data JConj          = JConj
                         , teFormK       :: String
                         , naiForm       :: String
                         , naiFormK      :: String
+                        , conjTranslate :: String
                         , conjTags      :: String
                         }
   deriving (Show, Read)
@@ -131,6 +132,7 @@ defJConj = JConj
     , teFormK       = ""
     , naiForm       = ""
     , naiFormK      = ""
+    , conjTranslate = ""
     , conjTags      = ""
     }
 testJConj :: JConj
@@ -142,9 +144,10 @@ testJConj = JConj
     , masuForm      = "Masu-form-ます"
     , masuFormK     = "Masu-kanji-form-ます"
     , teForm        = "Te-form-て"
-    , teFormK       = "Te-kanji-form-て"
+    , teFormK       = "Te-kanji-form-て, Te-kanji-form2-て"
     , naiForm       = "Nai-form-ない"
     , naiFormK      = "Nai-kanji-form-ない"
+    , conjTranslate = "Translate"
     , conjTags      = "test"
     }
 
@@ -161,6 +164,7 @@ instance T.FromTable JConj where
             <*> (T.unpack <$> m T..: "て kanji")
             <*> (T.unpack <$> m T..: "ない-form")
             <*> (T.unpack <$> m T..: "ない kanji")
+            <*> (T.unpack <$> m T..: "Translation")
             <*> (T.unpack <$> m T..: "Tags")
 
 instance ToRecord JConj where
