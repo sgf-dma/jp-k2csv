@@ -3,6 +3,7 @@
 
 module Main where
 
+import           Data.Maybe
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
 import qualified Data.Text              as T
@@ -11,26 +12,32 @@ import qualified Data.Text.Encoding     as T
 import qualified Data.ByteString        as BS
 import qualified Data.Attoparsec.Text   as A
 import           Control.Applicative
+import           Control.Monad
 import           System.Random.Shuffle
 
 import qualified Sgf.Data.Text.Table    as T
+
+import Data.Function
 
 import Sgf.Jp
 import Sgf.Jp.Types
 import Sgf.Data.Text.Table.Parse
 
--- Take input till separator parser succeeds. Predicate is used to identify
--- character at which to try to match separator parser. Separator is dropped
--- from result. Chunks not ending on separator are _not_ included.
-takeTillSep :: (Char -> Bool) -> A.Parser T.Text -> A.Parser T.Text
+-- Take input untill separator parser succeeds. Predicate is used to identify
+-- character at which to try to match separator parser. Result of separator
+-- parser is returned as separate value: i.e. text matched to separator is
+-- effectively dropped from result, but return value allows to pass some
+-- information (like which separator matches) from separator parser to the
+-- caller. Chunks not ending on separator are _not_ included.
+takeTillSep :: (Char -> Bool) -> A.Parser a -> A.Parser (T.Text, a)
 takeTillSep p sepP =
-    (   fmap T.concat
+    (,) <$> (   fmap T.concat
         .   many
         $   T.append
         <$> whenNotP sepP (T.singleton <$> A.anyChar)
         <*> A.takeWhile p
         )
-        <* sepP
+        <*> sepP
 
 -- Take input till string parser succeeds. Predicate is used to identify
 -- character at which to try to match string parser. Matched string is
@@ -47,27 +54,54 @@ takeTillStr p strP =
             )
         <*> strP
 
+-- | Split using 'takeTillSep' until separator parser returns 'True'.
+splitUntil :: (Char -> Bool) -> A.Parser Bool -> A.Parser [T.Text]
+splitUntil p sepP   = fix (step (takeTillSep p sepP)) ([], True)
+
+-- | One 'fix' step.
+step :: Monad m => m (a, Bool) -> (([a], Bool) -> m [a]) -> ([a], Bool) -> m [a]
+step mx rec (zs, b)
+  | b           = mx >>= \(w, b') -> (w :) <$> rec (zs, b')
+  | otherwise   = return zs
+
+-- | Word end.
+wordEnd :: T.Text
+wordEnd = " "
+-- | Word separator.
+wordSep :: T.Text
+wordSep = ","
+
+-- | Safe 'head' for 'Text'.
+tHeadMay :: T.Text -> Maybe Char
+tHeadMay t
+  | T.null t    = Nothing
+  | otherwise   = Just (T.head t)
+
+-- | Split to words by building separator from supplied word suffix and word
+-- delimiter. The last word is the one having only suffix without word
+-- delimeter at the end. No further input are parsed after last word. Word
+-- suffix may be /empty/.
+wordsWithSuffix :: T.Text -> T.Text -> [T.Text]
+wordsWithSuffix sf  = either (const []) id . A.parseOnly
+        (splitUntil (`notElem` catMaybes [tHeadMay sf, tHeadMay wordSep, tHeadMay wordEnd])
+            (   A.string (sf `T.append` wordSep) *> many (A.string wordEnd) *> return True
+            <|> A.string sf *> (A.string wordEnd <|> A.endOfInput *> pure T.empty) *> return False))
+
+-- | Generate several words with different suffixes in place of original.
+-- Empty suffix is /allowed/.
+replaceSuffix :: T.Text -> [T.Text] -> T.Text -> [VForm]
+replaceSuffix sf rs t
+  | null ws     = []
+  | otherwise   = foldr (\r -> (:) . VForm . map (`T.append` r) $ ws) [] rs
+  where ws = wordsWithSuffix sf t
+
+
 -- Each verb may have several writings.
 newtype VForm       = VForm {vforms :: [T.Text]}
   deriving (Show)
 
 vFormToText :: VForm -> T.Text
 vFormToText (VForm xs) = T.concat . L.intersperse ", " $ xs
-
--- Generate several words with different suffixes in place of original.
-replaceSuffix :: T.Text -> [T.Text] -> T.Text -> [VForm]
-replaceSuffix sf rs = either (return []) go . A.parseOnly
-    (  some
-            (takeTillSep
-                (/= T.head sf)
-                (A.string (sf `T.append` ", ") <|> A.string sf <* A.endOfInput
-                )
-            )
-    <* A.endOfInput
-    )
-  where
-    go :: [T.Text] -> [VForm]
-    go xs = foldr (\r -> (:) . VForm . map (`T.append` r) $ xs) [] rs
 
 appendConjNum :: VForm -> JConj -> VForm
 appendConjNum VForm {..} = VForm . snoc vforms . T.pack . show . conjNumber
