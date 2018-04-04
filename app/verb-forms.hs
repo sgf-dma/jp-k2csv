@@ -107,18 +107,18 @@ appendConjNum :: VForm -> JConj -> VForm
 appendConjNum VForm {..} = VForm . snoc vforms . T.pack . show . conjNumber
 
 -- FIXME: dict form shouldn't work with several kanji.
-{-genDictForms :: Bool -> JConj -> [T.Text]
+genDictForms :: Bool -> JConj -> [VForm]
 genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
   where
     dictStem :: JConj -> T.Text
     dictStem x
       | not isKanji || null (dictFormK x)   = T.pack (dictForm x)
       | otherwise                           = T.pack (dictFormK x)
-    gen :: T.Text -> [T.Text]
-    gen x           = map (x `T.append`)
+    gen :: T.Text -> [VForm]
+    gen             = "" `replaceSuffix`
                         [ "前に"
                         , "ことができます"
-                        ]-}
+                        ]
 
 -- FIXME: The same problem, as with dict forms?
 genMasuForms :: Bool -> JConj -> [VForm]
@@ -177,7 +177,8 @@ generateForms isKanjiAlways = foldr go []
     go' = do
         b  <- isKanji
         vs <-
-            genMasuForms b
+            genDictForms b
+            <++> genMasuForms b
             <++> genTeForms b
             <++> genTaForms b
             <++> genNaiForms b
