@@ -31,12 +31,13 @@ import Sgf.Data.Text.Table.Parse
 -- caller. Chunks not ending on separator are _not_ included.
 takeTillSep :: (Char -> Bool) -> A.Parser a -> A.Parser (T.Text, a)
 takeTillSep p sepP =
-    (,) <$> (   fmap T.concat
-        .   many
-        $   T.append
-        <$> whenNotP sepP (T.singleton <$> A.anyChar)
-        <*> A.takeWhile p
-        )
+    (,)
+        <$> (   fmap T.concat
+            .   many
+            $   T.append
+            <$> whenNotP sepP (T.singleton <$> A.anyChar)
+            <*> A.takeWhile p
+            )
         <*> sepP
 
 -- Take input till string parser succeeds. Predicate is used to identify
@@ -56,13 +57,17 @@ takeTillStr p strP =
 
 -- | Split using 'takeTillSep' until separator parser returns 'True'.
 splitUntil :: (Char -> Bool) -> A.Parser Bool -> A.Parser [T.Text]
-splitUntil p sepP   = fix (step (takeTillSep p sepP)) ([], True)
+splitUntil p sepP = fix (step (takeTillSep p sepP)) ([], True)
 
 -- | One 'fix' step.
-step :: Monad m => m (a, Bool) -> (([a], Bool) -> m [a]) -> ([a], Bool) -> m [a]
-step mx rec (zs, b)
-  | b           = mx >>= \(w, b') -> (w :) <$> rec (zs, b')
-  | otherwise   = return zs
+step
+    :: Monad m
+    => m (a, Bool)
+    -> (([a], Bool) -> m [a])
+    -> ([a], Bool)
+    -> m [a]
+step mx rec (zs, b) | b         = mx >>= \(w, b') -> (w :) <$> rec (zs, b')
+                    | otherwise = return zs
 
 -- | Word end.
 wordEnd :: T.Text
@@ -73,27 +78,38 @@ wordSep = ","
 
 -- | Safe 'head' for 'Text'.
 tHeadMay :: T.Text -> Maybe Char
-tHeadMay t
-  | T.null t    = Nothing
-  | otherwise   = Just (T.head t)
+tHeadMay t | T.null t  = Nothing
+           | otherwise = Just (T.head t)
 
 -- | Split to words by building separator from supplied word suffix and word
 -- delimiter. The last word is the one having only suffix without word
 -- delimeter at the end. No further input are parsed after last word. Word
 -- suffix may be /empty/.
 wordsWithSuffix :: T.Text -> T.Text -> [T.Text]
-wordsWithSuffix sf  = either (const []) id . A.parseOnly
-        (splitUntil (`notElem` catMaybes [tHeadMay sf, tHeadMay wordSep, tHeadMay wordEnd])
-            (   A.string (sf `T.append` wordSep) *> many (A.string wordEnd) *> return True
-            <|> A.string sf *> (A.string wordEnd <|> A.endOfInput *> pure T.empty) *> return False))
+wordsWithSuffix sf = either (const []) id . A.parseOnly
+    (splitUntil
+        (`notElem` catMaybes
+            [ tHeadMay sf
+            , tHeadMay wordSep
+            , tHeadMay wordEnd
+            ]
+        )
+        (   A.string (sf `T.append` wordSep)
+            *>  many (A.string wordEnd)
+            *>  return True
+        <|> A.string sf
+            *>  (A.string wordEnd <|> A.endOfInput *> pure T.empty)
+            *>  return False
+        )
+    )
 
 -- | Generate several words with different suffixes in place of original.
 -- Empty suffix is /allowed/.
 replaceSuffix :: T.Text -> [T.Text] -> T.Text -> [VForm]
 replaceSuffix sf rs t
-  | null ws     = []
-  | otherwise   = foldr (\r -> (:) . VForm . map (`T.append` r) $ ws) [] rs
-  where ws = wordsWithSuffix sf t
+    | null ws   = []
+    | otherwise = foldr (\r -> (:) . VForm . map (`T.append` r) $ ws) [] rs
+    where ws = wordsWithSuffix sf t
 
 
 -- Each verb may have several writings.
@@ -111,14 +127,10 @@ genDictForms :: Bool -> JConj -> [VForm]
 genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
   where
     dictStem :: JConj -> T.Text
-    dictStem x
-      | not isKanji || null (dictFormK x)   = T.pack (dictForm x)
-      | otherwise                           = T.pack (dictFormK x)
+    dictStem x | not isKanji || null (dictFormK x) = T.pack (dictForm x)
+               | otherwise                         = T.pack (dictFormK x)
     gen :: T.Text -> [VForm]
-    gen             = "" `replaceSuffix`
-                        [ "前に"
-                        , "ことができます"
-                        ]
+    gen = "" `replaceSuffix` ["前に", "ことができます"]
 
 -- FIXME: The same problem, as with dict forms?
 genMasuForms :: Bool -> JConj -> [VForm]
