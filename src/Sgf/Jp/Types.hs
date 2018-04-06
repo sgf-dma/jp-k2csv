@@ -138,7 +138,7 @@ defJConj = JConj
 testJConj :: JConj
 testJConj = JConj
     { conjNumber    = 1111
-    , conjReference = "M-Test-"
+    , conjReference = "M111-W23    M222-W1 "
     , dictForm      = "Dict-form"
     , dictFormK     = "Dict-kanji-form"
     , masuForm      = "Masu-form-ます"

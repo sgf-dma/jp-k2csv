@@ -4,8 +4,10 @@
 module Main where
 
 import           Data.Maybe
+import           Data.Either
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
+import qualified Data.Map               as M
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
 import qualified Data.Text.Encoding     as T
@@ -273,8 +275,25 @@ sp1 = VFormSpec {stem = teStem, newSuf = "ta-koto-ga-arimasu", transMod = (`T.ap
 sp2 :: VFormSpec
 sp2 = VFormSpec {stem = teStem', newSuf = "ta-koto-ga-arimasu", transMod = (`T.append` "приходилось ли ")}
 
-lsp :: [VFormSpec]
-lsp =   [ VFormSpec {stem = dictStem, newSuf = "", transMod = id}
+masuSpec :: [VFormSpec]
+masuSpec = [ VFormSpec {stem = masuStem, newSuf = "ます", transMod = id} ]
+
+dictSpec :: [VFormSpec]
+dictSpec    = [ VFormSpec {stem = dictStem, newSuf = "", transMod = id} ]
+
+taSpec :: [VFormSpec]
+taSpec      = [ VFormSpec {stem = teStem, newSuf = "た", transMod = id}
+              , VFormSpec {stem = teStem', newSuf = "だ", transMod = id}
+              ]
+
+naiSpec :: [VFormSpec]
+naiSpec     = [ VFormSpec {stem = naiStem, newSuf = "ない", transMod = id} ]
+
+nakattaSpec :: [VFormSpec]
+nakattaSpec = [ VFormSpec {stem = naiStem, newSuf = "なかった", transMod = id} ]
+
+futsuuSpec :: [VFormSpec]
+futsuuSpec = [ VFormSpec {stem = dictStem, newSuf = "", transMod = id}
         , VFormSpec {stem = naiStem , newSuf = "ない", transMod = id}
         , VFormSpec {stem = teStem  , newSuf = "た", transMod = id}
         , VFormSpec {stem = teStem' , newSuf = "だ", transMod = id}
@@ -371,26 +390,47 @@ putStrUtf8 = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
 randomWrite :: FilePath -> [T.Text] -> IO ()
 randomWrite fn xs = shuffleM xs >>= T.writeFile fn . T.unlines
 
-main :: IO ()
-main = do
-    mconj <- T.decodeFileL "../conjugations.txt" >>= either
-        (\e -> error $ "Can't parse JConj table " ++ e)
-        (return . buildMap conjNumber)
-    checkMap mconj
-    let conjFormsQ = generateForms False mconj
-        conjFormsA = generateForms True mconj
-        conjFormsQ2 = generateForms2 oldVFCompat False mconj
-        conjFormsA2 = generateForms2 oldVFCompat True mconj
-    T.writeFile "../test-forms.txt"  (T.unlines conjFormsQ)
-    T.writeFile "../test-formsA.txt" (T.unlines conjFormsA)
-    T.writeFile "../test-forms2.txt"  (T.unlines conjFormsQ2)
-    T.writeFile "../test-formsA2.txt" (T.unlines conjFormsA2)
+writeVerbFiles :: String -> ([T.Text], [T.Text]) -> IO ()
+writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
+    let qfn = "../wonly-random-formsQ" ++ fnSuf ++ ".txt"
+        afn = "../wonly-random-formsA" ++ fnSuf ++ ".txt"
+    T.writeFile "../test-forms2.txt"  (T.unlines conjFormsQ)
+    T.writeFile "../test-formsA2.txt" (T.unlines conjFormsA)
     (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ
                                                             conjFormsA
-    (randFormsQ2, randFormsA2) <- fmap unzip . shuffleM $ zip conjFormsQ2
-                                                            conjFormsA2
+    T.writeFile qfn (T.unlines randFormsQ)
+    T.writeFile afn (T.unlines randFormsA)
+
+data LNum       = LNum {lessonNum :: Int, seqNum :: Int}
+  deriving (Show)
+
+lnumP :: A.Parser LNum
+lnumP = LNum <$> (A.string "M" *> A.decimal <* "-") <*> (A.string "W" *> A.decimal)
+
+conjLNums :: JConj -> [LNum]
+conjLNums = rights . map (A.parseOnly lnumP) . toWords . T.pack . conjReference
+
+inConjLnums :: (LNum -> Bool) -> JConj -> Bool
+inConjLnums p = any p . conjLNums
+
+main :: IO ()
+main = do
+    mconj' <- T.decodeFileL "../conjugations.txt" >>= either
+        (\e -> error $ "Can't parse JConj table " ++ e)
+        (return . buildMap conjNumber)
+    checkMap mconj'
+    let mconj = M.filter (any (inConjLnums (const True))) mconj'
+    let conjFormsQ = generateForms False mconj
+        conjFormsA = generateForms True mconj
+    T.writeFile "../test-forms.txt"  (T.unlines conjFormsQ)
+    T.writeFile "../test-formsA.txt" (T.unlines conjFormsA)
+    (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ
+                                                            conjFormsA
     T.writeFile "../random-formsQ.txt" (T.unlines randFormsQ)
     T.writeFile "../random-formsA.txt" (T.unlines randFormsA)
-    T.writeFile "../random-formsQ2.txt" (T.unlines randFormsQ2)
-    T.writeFile "../random-formsA2.txt" (T.unlines randFormsA2)
+
+    writeVerbFiles "-dict"    (generateForms2 masuSpec False mconj, generateForms2 dictSpec True mconj)
+    writeVerbFiles "-nai"     (generateForms2 masuSpec False mconj, generateForms2 naiSpec True mconj)
+    writeVerbFiles "-ta"      (generateForms2 masuSpec False mconj, generateForms2 taSpec True mconj)
+    writeVerbFiles "-nakatta" (generateForms2 masuSpec False mconj, generateForms2 nakattaSpec True mconj)
 

@@ -5,6 +5,7 @@ module Sgf.Jp
     , checkMap
     , possibleForeign
     , checkRefs
+    , toWords
     , inConjTags
     )
   where
