@@ -127,8 +127,8 @@ vFormToText (VForm xs) = T.concat . L.intersperse ", " $ xs
 
 type Writing        = [T.Text]
 
-writingToText :: [T.Text] -> T.Text
-writingToText = T.concat . L.intersperse ", "
+writingToLine :: [T.Text] -> T.Text
+writingToLine = T.concat . L.intersperse ", "
 
 data VForm2         = VForm2
                         { kanaForm2     :: Writing
@@ -349,8 +349,39 @@ generateForms2 vsp isKanjiAlways = foldr go []
         b  <- isKanji
         vs <- mapM genSpec vsp
         if b
-          then return (map (writingToText . kanjiForm2) $ vs)
-          else return (map (writingToText . kanaForm2)  $ vs)
+          then return (map (writingToLine . kanjiForm2) $ vs)
+          else return (map (writingToLine . kanaForm2)  $ vs)
+
+-- | Answer is always "full" (contains all forms), thus the answer should also
+-- be on a single line. But questions may be different and each may contain a
+-- different number of forms.
+data RunSpec        = RunSpec
+                        { questionSpec  :: [LineSpec]
+                        , questionWriting :: VForm2 -> Writing
+                        , answerSpec    :: LineSpec
+                        , answerWriting :: VForm2 -> Writing
+                        }
+
+-- Forms, which should be output on a single line.
+data LineSpec       = LineSpec {lineSpec :: [VFormSpec]}
+
+genLine :: LineSpec -> (VForm2 -> Writing) -> JConj -> T.Text
+genLine (LineSpec vsp) f    = do
+    vs <- mapM genSpec vsp
+    return . T.concat . L.intersperse "; "
+        . filter (not . T.null) . map (writingToLine . f)
+        $ vs
+
+genLine' :: [LineSpec] -> (VForm2 -> Writing) -> JConj -> [T.Text]
+genLine' lsp f x  = map (\l -> genLine l f x) lsp
+
+generateForms3 :: Foldable t => [LineSpec] -> Bool -> t [JConj] -> [T.Text]
+generateForms3 lsp isKanjiAlways = foldr ((++) . go) []
+  where
+    isKanji :: JConj -> Bool
+    isKanji = (isKanjiAlways ||) <$> inConjTags "kanji"
+    go :: [JConj] -> [T.Text]
+    go = concatMap $ \x -> genLine' lsp (if isKanji x then kanjiForm2 else kanaForm2) x
 
 genNaiForms :: Bool -> JConj -> [VForm]
 genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
@@ -392,14 +423,16 @@ randomWrite fn xs = shuffleM xs >>= T.writeFile fn . T.unlines
 
 writeVerbFiles :: String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
-    let qfn = "../wonly-random-formsQ" ++ fnSuf ++ ".txt"
-        afn = "../wonly-random-formsA" ++ fnSuf ++ ".txt"
-    T.writeFile "../test-forms2.txt"  (T.unlines conjFormsQ)
-    T.writeFile "../test-formsA2.txt" (T.unlines conjFormsA)
+    let qfn  = "../wonly-formsQ" ++ fnSuf ++ ".txt"
+        qrfn = "../wonly-random-formsQ" ++ fnSuf ++ ".txt"
+        afn  = "../wonly-formsA" ++ fnSuf ++ ".txt"
+        arfn = "../wonly-random-formsA" ++ fnSuf ++ ".txt"
+    T.writeFile qfn  (T.unlines conjFormsQ)
+    T.writeFile afn (T.unlines conjFormsA)
     (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ
                                                             conjFormsA
-    T.writeFile qfn (T.unlines randFormsQ)
-    T.writeFile afn (T.unlines randFormsA)
+    T.writeFile qrfn (T.unlines randFormsQ)
+    T.writeFile arfn (T.unlines randFormsA)
 
 data LNum       = LNum {lessonNum :: Int, seqNum :: Int}
   deriving (Show)
@@ -429,8 +462,22 @@ main = do
     T.writeFile "../random-formsQ.txt" (T.unlines randFormsQ)
     T.writeFile "../random-formsA.txt" (T.unlines randFormsA)
 
-    writeVerbFiles "-dict"    (generateForms2 masuSpec False mconj, generateForms2 dictSpec True mconj)
-    writeVerbFiles "-nai"     (generateForms2 masuSpec False mconj, generateForms2 naiSpec True mconj)
-    writeVerbFiles "-ta"      (generateForms2 masuSpec False mconj, generateForms2 taSpec True mconj)
-    writeVerbFiles "-nakatta" (generateForms2 masuSpec False mconj, generateForms2 nakattaSpec True mconj)
+    writeVerbFiles "-dict"  ( generateForms2 masuSpec False mconj
+                            , generateForms2 dictSpec True mconj
+                            )
+    writeVerbFiles "-dict3" ( generateForms3 [LineSpec masuSpec] False mconj
+                            , generateForms3 [LineSpec dictSpec] True mconj
+                            )
+    --writeVerbFiles "-nai"     (generateForms2 masuSpec False mconj, generateForms2 naiSpec True mconj)
+    --writeVerbFiles "-ta"      (generateForms2 masuSpec False mconj, generateForms2 taSpec True mconj)
+    --writeVerbFiles "-nakatta" (generateForms2 masuSpec False mconj, generateForms2 nakattaSpec True mconj)
+    writeVerbFiles "-futsuu"    ( generateForms2 futsuuSpec False mconj
+                                , generateForms2 futsuuSpec True mconj
+                                )
+    writeVerbFiles "-futsuu3"   ( generateForms3 [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec] False mconj
+                                , generateForms3 [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec] True mconj
+                                )
+    writeVerbFiles "-futsuu31"  ( generateForms3 [LineSpec masuSpec] False mconj
+                                , generateForms3 [LineSpec futsuuSpec] True mconj
+                                )
 
