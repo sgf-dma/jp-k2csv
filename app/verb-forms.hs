@@ -125,6 +125,17 @@ newtype VForm       = VForm {vforms :: [T.Text]}
 vFormToText :: VForm -> T.Text
 vFormToText (VForm xs) = T.concat . L.intersperse ", " $ xs
 
+--gen = "" `replaceSuffix` ["前に", "ことができます"]
+
+--gen = "ます" `replaceSuffix` ["たい", "たくない", "たかった", "たくなかった"]
+
+--gen = "て" `replaceSuffix` ["てください", "てもいいです", "てはいけません", "ています"]
+
+--gen = "て" `replaceSuffix` ["たことがあります", "たり"]
+
+--gen = "ない" `replaceSuffix` ["ないでください", "なくてもいいです", "なければなりません"]
+
+
 type Writing        = [T.Text]
 
 writingToLine :: [T.Text] -> T.Text
@@ -143,55 +154,6 @@ data VFormSpec       = VFormSpec
                         , newSuf :: T.Text
                         , transMod :: T.Text -> T.Text
                         }
-
-appendConjNum :: VForm -> JConj -> VForm
-appendConjNum VForm {..} = VForm . snoc vforms . T.pack . show . conjNumber
-
-genDictForms :: Bool -> JConj -> [VForm]
-genDictForms isKanji = gen . dictStem >>= mapM appendConjNum
-  where
-    dictStem :: JConj -> T.Text
-    dictStem x | not isKanji || null (dictFormK x) = T.pack (dictForm x)
-               | otherwise                         = T.pack (dictFormK x)
-    gen :: T.Text -> [VForm]
-    gen = "" `replaceSuffix` ["前に", "ことができます"]
-    --gen = "" `replaceSuffix` [""]
-
-genMasuForms :: Bool -> JConj -> [VForm]
-genMasuForms isKanji w =
-    let t = masuStem w in mapM appendConjNum (VForm [t] : gen t) w
-  where
-    masuStem :: JConj -> T.Text
-    masuStem x | not isKanji || null (masuFormK x) = T.pack (masuForm x)
-               | otherwise                         = T.pack (masuFormK x)
-    gen :: T.Text -> [VForm]
-    gen = "ます" `replaceSuffix` ["たい", "たくない", "たかった", "たくなかった"]
-
-genTeForms :: Bool -> JConj -> [VForm]
-genTeForms isKanji = (gen <++> gen') . teStem >>= mapM appendConjNum
-  where
-    teStem :: JConj -> T.Text
-    teStem x | not isKanji || null (teFormK x) = T.pack (teForm x)
-             | otherwise                       = T.pack (teFormK x)
-    gen :: T.Text -> [VForm]
-    gen = "て" `replaceSuffix` ["てください", "てもいいです", "てはいけません", "ています"]
-    gen' :: T.Text -> [VForm]
-    gen' = "で" `replaceSuffix` ["でください", "でもいいです", "ではいけません", "でいます"]
-
-genTaForms :: Bool -> JConj -> [VForm]
-genTaForms isKanji = (gen <++> gen') . taStem >>= mapM appendConjNum
-  where
-    taStem :: JConj -> T.Text
-    taStem x | not isKanji || null (teFormK x) = T.pack (teForm x)
-             | otherwise                       = T.pack (teFormK x)
-    gen :: T.Text -> [VForm]
-    gen = "て" `replaceSuffix` ["たことがあります", "たり"]
-    --gen = "て" `replaceSuffix` ["た"]
-    gen' :: T.Text -> [VForm]
-    gen' = "で" `replaceSuffix` ["だことがあります", "だり"]
-    --gen' = "で" `replaceSuffix` ["だ"]
-
-
 
 teStem :: JConj -> VForm2
 teStem x =
@@ -337,6 +299,18 @@ genSpec VFormSpec {..} x =
                     else flip snoc (T.pack . show $ vNum2) . map (`T.append` newSuf) $ kanjiForm2
             }
 
+genSpec' :: VFormSpec -> JConj -> VForm2
+genSpec' VFormSpec {..} x =
+    let v@(VForm2 {..}) = stem x
+    in  v
+            { kanaForm2 =
+                if null kanaForm2 then []
+                    else map (`T.append` newSuf) $ kanaForm2
+            , kanjiForm2 =
+                if null kanjiForm2 then []
+                    else map (`T.append` newSuf) $ kanjiForm2
+            }
+
 generateForms2 :: Foldable t => [VFormSpec] -> Bool -> t [JConj] -> [T.Text]
 generateForms2 vsp isKanjiAlways = foldr go []
   where
@@ -357,9 +331,9 @@ generateForms2 vsp isKanjiAlways = foldr go []
 -- different number of forms.
 data RunSpec        = RunSpec
                         { questionSpec  :: [LineSpec]
-                        , questionWriting :: VForm2 -> Writing
+                        , questionWriting :: JConj -> VForm2 -> Writing
                         , answerSpec    :: LineSpec
-                        , answerWriting :: VForm2 -> Writing
+                        , answerWriting :: JConj -> VForm2 -> Writing
                         }
 
 -- Forms, which should be output on a single line.
@@ -367,53 +341,35 @@ data LineSpec       = LineSpec {lineSpec :: [VFormSpec]}
 
 genLine :: LineSpec -> (VForm2 -> Writing) -> JConj -> T.Text
 genLine (LineSpec vsp) f    = do
-    vs <- mapM genSpec vsp
+    vs <- mapM genSpec' vsp
+    jn <- conjNumber
     return . T.concat . L.intersperse "; "
-        . filter (not . T.null) . map (writingToLine . f)
+        . filter (not . T.null)
+        . flip snoc (T.pack . show $ jn) . map (writingToLine . f)
         $ vs
 
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> JConj -> [T.Text]
 genLine' lsp f x  = map (\l -> genLine l f x) lsp
 
-generateForms3 :: Foldable t => [LineSpec] -> Bool -> t [JConj] -> [T.Text]
-generateForms3 lsp isKanjiAlways = foldr ((++) . go) []
-  where
-    isKanji :: JConj -> Bool
-    isKanji = (isKanjiAlways ||) <$> inConjTags "kanji"
-    go :: [JConj] -> [T.Text]
-    go = concatMap $ \x -> genLine' lsp (if isKanji x then kanjiForm2 else kanaForm2) x
+zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
+zipM mxs mys    = do
+    xs <- mxs
+    ys <- mys
+    return (zip xs ys)
 
-genNaiForms :: Bool -> JConj -> [VForm]
-genNaiForms isKanji = gen . naiStem >>= mapM appendConjNum
+generateForms4 :: Foldable t => RunSpec -> t [JConj] -> [(T.Text, T.Text)]
+generateForms4 RunSpec{..} = foldr ((++) . go) []
   where
-    naiStem :: JConj -> T.Text
-    naiStem x | not isKanji || null (naiFormK x) = T.pack (naiForm x)
-              | otherwise                        = T.pack (naiFormK x)
-    gen :: T.Text -> [VForm]
-    gen = "ない" `replaceSuffix` ["ないでください", "なくてもいいです", "なければなりません"]
-    --gen = "ない" `replaceSuffix` ["ない", "なかった"]
+    questions :: JConj -> [T.Text]
+    questions   = questionWriting >>= genLine' questionSpec
+    answer :: JConj -> T.Text
+    answer  = answerWriting >>= genLine answerSpec
+    go :: [JConj] -> [(T.Text, T.Text)]
+    go = concatMap (zipM questions (sequence (repeat answer)))
 
 infixl 3 <++>
 (<++>) :: Applicative f => f [a] -> f [a] -> f [a]
 (<++>) = liftA2 (++)
-
-generateForms :: Foldable t => Bool -> t [JConj] -> [T.Text]
-generateForms isKanjiAlways = foldr go []
-  where
-    isKanji :: JConj -> Bool
-    isKanji = (isKanjiAlways ||) <$> inConjTags "kanji"
-    go :: [JConj] -> [T.Text] -> [T.Text]
-    go = flip $ foldr ((++) . go')
-    go' :: JConj -> [T.Text]
-    go' = do
-        b  <- isKanji
-        vs <-
-            genDictForms b
-            <++> genMasuForms b
-            <++> genTeForms b
-            <++> genTaForms b
-            <++> genNaiForms b
-        return (map vFormToText vs)
 
 putStrUtf8 :: T.Text -> IO ()
 putStrUtf8 = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
@@ -446,6 +402,51 @@ conjLNums = rights . map (A.parseOnly lnumP) . toWords . T.pack . conjReference
 inConjLnums :: (LNum -> Bool) -> JConj -> Bool
 inConjLnums p = any p . conjLNums
 
+isKanji :: Bool -> JConj -> VForm2 -> Writing
+isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
+            <$> inConjTags "kanji"
+
+ddd :: RunSpec
+ddd     = RunSpec
+            { questionSpec = [LineSpec dictSpec, LineSpec taSpec]
+            , questionWriting = isKanji False
+            , answerSpec = LineSpec futsuuSpec
+            , answerWriting = isKanji True
+            }
+
+masuDisctRS :: RunSpec
+masuDisctRS = RunSpec
+            { questionSpec = [LineSpec masuSpec]
+            , questionWriting = isKanji False
+            , answerSpec = LineSpec dictSpec
+            , answerWriting = isKanji True
+            }
+
+futsuuRS :: RunSpec
+futsuuRS    = RunSpec
+            { questionSpec = [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec]
+            , questionWriting = isKanji False
+            , answerSpec = LineSpec futsuuSpec
+            , answerWriting = isKanji True
+            }
+
+masuFutsuuRS :: RunSpec
+masuFutsuuRS    = RunSpec
+            { questionSpec = [LineSpec masuSpec]
+            , questionWriting = isKanji False
+            , answerSpec = LineSpec futsuuSpec
+            , answerWriting = isKanji True
+            }
+
+-- FIXME: Rewrite `oldVFRS` to properly generate ta/da verb forms.
+oldVFRS :: RunSpec
+oldVFRS         = RunSpec
+            { questionSpec = map (LineSpec . (: [])) oldVFCompat
+            , questionWriting = isKanji False
+            , answerSpec = LineSpec masuSpec
+            , answerWriting = isKanji True
+            }
+
 main :: IO ()
 main = do
     mconj' <- T.decodeFileL "../conjugations.txt" >>= either
@@ -453,31 +454,15 @@ main = do
         (return . buildMap conjNumber)
     checkMap mconj'
     let mconj = M.filter (any (inConjLnums (const True))) mconj'
-    let conjFormsQ = generateForms False mconj
-        conjFormsA = generateForms True mconj
-    T.writeFile "../test-forms.txt"  (T.unlines conjFormsQ)
-    T.writeFile "../test-formsA.txt" (T.unlines conjFormsA)
-    (randFormsQ, randFormsA) <- fmap unzip . shuffleM $ zip conjFormsQ
-                                                            conjFormsA
-    T.writeFile "../random-formsQ.txt" (T.unlines randFormsQ)
-    T.writeFile "../random-formsA.txt" (T.unlines randFormsA)
 
-    writeVerbFiles "-dict"  ( generateForms2 masuSpec False mconj
-                            , generateForms2 dictSpec True mconj
-                            )
-    writeVerbFiles "-dict3" ( generateForms3 [LineSpec masuSpec] False mconj
-                            , generateForms3 [LineSpec dictSpec] True mconj
-                            )
-    --writeVerbFiles "-nai"     (generateForms2 masuSpec False mconj, generateForms2 naiSpec True mconj)
-    --writeVerbFiles "-ta"      (generateForms2 masuSpec False mconj, generateForms2 taSpec True mconj)
-    --writeVerbFiles "-nakatta" (generateForms2 masuSpec False mconj, generateForms2 nakattaSpec True mconj)
     writeVerbFiles "-futsuu"    ( generateForms2 futsuuSpec False mconj
                                 , generateForms2 futsuuSpec True mconj
                                 )
-    writeVerbFiles "-futsuu3"   ( generateForms3 [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec] False mconj
-                                , generateForms3 [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec] True mconj
-                                )
-    writeVerbFiles "-futsuu31"  ( generateForms3 [LineSpec masuSpec] False mconj
-                                , generateForms3 [LineSpec futsuuSpec] True mconj
-                                )
+
+    writeVerbFiles "-ddd" (unzip $ generateForms4 ddd mconj)
+    --writeVerbFiles "-oldVF" (unzip $ generateForms4 oldVFRS mconj)
+    writeVerbFiles "-dict4" ( unzip $ generateForms4 masuDisctRS mconj)
+    -- FIXME: Is not equivalent of `futsuu`.
+    writeVerbFiles "-futsuu4" ( unzip $ generateForms4 futsuuRS mconj)
+    writeVerbFiles "-futsuu41" ( unzip $ generateForms4 masuFutsuuRS mconj)
 
