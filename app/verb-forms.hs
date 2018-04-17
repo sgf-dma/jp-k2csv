@@ -145,7 +145,6 @@ data VForm2         = VForm2
                         { kanaForm2     :: Writing
                         , kanjiForm2    :: Writing
                         , translForm2   :: Writing
-                        , vNum2         :: Int
                         }
   deriving (Show)
 
@@ -161,7 +160,6 @@ teStem x =
         { kanaForm2     = gen . T.pack . teForm $ x
         , kanjiForm2    = gen . T.pack . kanjiStem $ x
         , translForm2   = [T.pack . conjTranslate $ x]
-        , vNum2         = conjNumber x
         }
   where
     kanjiStem :: JConj -> String
@@ -176,7 +174,6 @@ teStem' x =
         { kanaForm2     = gen . T.pack . teForm $ x
         , kanjiForm2    = gen . T.pack . kanjiStem $ x
         , translForm2   = [T.pack . conjTranslate $ x]
-        , vNum2         = conjNumber x
         }
   where
     kanjiStem :: JConj -> String
@@ -191,7 +188,6 @@ naiStem x =
         { kanaForm2     = gen . T.pack . naiForm $ x
         , kanjiForm2    = gen . T.pack . kanjiStem $ x
         , translForm2   = [T.pack . conjTranslate $ x]
-        , vNum2         = conjNumber x
         }
   where
     kanjiStem :: JConj -> String
@@ -206,7 +202,6 @@ dictStem x =
         { kanaForm2     = gen . T.pack . dictForm $ x
         , kanjiForm2    = gen . T.pack . kanjiStem $ x
         , translForm2   = [T.pack . conjTranslate $ x]
-        , vNum2         = conjNumber x
         }
   where
     kanjiStem :: JConj -> String
@@ -221,7 +216,6 @@ masuStem x =
         { kanaForm2     = gen . T.pack . masuForm $ x
         , kanjiForm2    = gen . T.pack . kanjiStem $ x
         , translForm2   = [T.pack . conjTranslate $ x]
-        , vNum2         = conjNumber x
         }
   where
     kanjiStem :: JConj -> String
@@ -290,13 +284,14 @@ oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
 genSpec :: VFormSpec -> JConj -> VForm2
 genSpec VFormSpec {..} x =
     let v@(VForm2 {..}) = stem x
+        vn = conjNumber x
     in  v
             { kanaForm2 =
                 if null kanaForm2 then []
-                    else flip snoc (T.pack . show $ vNum2) . map (`T.append` newSuf) $ kanaForm2
+                    else flip snoc (T.pack . show $ vn) . map (`T.append` newSuf) $ kanaForm2
             , kanjiForm2 =
                 if null kanjiForm2 then []
-                    else flip snoc (T.pack . show $ vNum2) . map (`T.append` newSuf) $ kanjiForm2
+                    else flip snoc (T.pack . show $ vn) . map (`T.append` newSuf) $ kanjiForm2
             }
 
 genSpec' :: VFormSpec -> JConj -> VForm2
