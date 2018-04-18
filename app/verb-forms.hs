@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE RecordWildCards        #-}
+{-# LANGUAGE TupleSections          #-}
 
 module Main where
 
 import           Data.Maybe
 import           Data.Either
+import           Data.Tuple
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
@@ -14,6 +16,7 @@ import qualified Data.Text.Encoding     as T
 import qualified Data.ByteString        as BS
 import qualified Data.Attoparsec.Text   as A
 import           Control.Applicative
+import           Control.Arrow
 import           Control.Monad
 import           System.Random.Shuffle
 
@@ -154,109 +157,128 @@ data VFormSpec       = VFormSpec
                         , transMod :: T.Text -> T.Text
                         }
 
-teStem :: JConj -> VForm2
-teStem x =
-    VForm2
-        { kanaForm2     = gen . T.pack . teForm $ x
-        , kanjiForm2    = gen . T.pack . kanjiStem $ x
-        , translForm2   = [T.pack . conjTranslate $ x]
-        }
-  where
-    kanjiStem :: JConj -> String
-    kanjiStem y | null (teFormK x)  = teForm y
-                | otherwise         = teFormK y
-    gen :: T.Text -> [T.Text]
-    gen     = wordsWithSuffix "て"
+defVFormSpec :: VFormSpec
+defVFormSpec        = VFormSpec
+                        { stem = undefined
+                        , newSuf = ""
+                        , transMod = id
+                        }
 
-teStem' :: JConj -> VForm2
-teStem' x =
-    VForm2
-        { kanaForm2     = gen . T.pack . teForm $ x
-        , kanjiForm2    = gen . T.pack . kanjiStem $ x
-        , translForm2   = [T.pack . conjTranslate $ x]
-        }
-  where
-    kanjiStem :: JConj -> String
-    kanjiStem y | null (teFormK x)  = teForm y
-                | otherwise         = teFormK y
-    gen :: T.Text -> [T.Text]
-    gen     = wordsWithSuffix "で"
+-- FIXME: Complete table.
+voicedChars :: [(Char, Char)]
+voicedChars     = [ ( 'て', 'で'), ( 'た', 'だ' ), ('T', 'D') ]
 
-naiStem :: JConj -> VForm2
-naiStem x =
+-- | Given a character (either voiceless or voiced) return a pair, where first
+-- is voiceless and second is voiced character versions. If given character
+-- does not have voiced version, return `Nothing`.
+voicedPair :: Char -> Maybe (Char, Char)
+voicedPair x    =       (x ,) <$> lookup x voicedChars
+                    <|> (, x) <$> lookup x (map swap voicedChars)
+
+voicedTPair :: T.Text -> (T.Text, T.Text)
+voicedTPair t
+  | T.null t    = (t, t)
+  | otherwise   = maybe (t, t) (both (`T.cons` T.tail t))
+                    $ voicedPair (T.head t)
+
+maybeNotEmpty :: [a] -> Maybe [a]
+maybeNotEmpty xs
+  | null xs     = Nothing
+  | otherwise   = Just xs
+
+both :: Arrow a => a b c -> a (b, b) (c, c)
+both f  = f *** f
+
+teBased :: T.Text -> JConj -> VForm2
+teBased suf w =
     VForm2
-        { kanaForm2     = gen . T.pack . naiForm $ x
-        , kanjiForm2    = gen . T.pack . kanjiStem $ x
-        , translForm2   = [T.pack . conjTranslate $ x]
+        { kanaForm2     = gen . kanaStem $ w
+        , kanjiForm2    = gen . kanjiStem $ w
+        , translForm2   = [T.pack . conjTranslate $ w]
+        }
+  where
+    kanaStem :: JConj -> T.Text
+    kanaStem    = T.pack . teForm
+    kanjiStem :: JConj -> T.Text
+    kanjiStem | null (teFormK w)  = T.pack . teForm
+              | otherwise         = T.pack . teFormK
+    gen :: T.Text -> Writing
+    gen t      = let (uSuf, vSuf) = voicedTPair suf
+                  in  fromMaybe [] $
+                            map (`T.append` uSuf) <$> genU t
+                        <|> map (`T.append` vSuf) <$> genV t
+    -- | Split to words using unvocied suffix.
+    genU :: T.Text -> Maybe [T.Text]
+    genU    = maybeNotEmpty . wordsWithSuffix "て"
+    -- | Split to words using voiced suffix.
+    genV :: T.Text -> Maybe [T.Text]
+    genV    = maybeNotEmpty . wordsWithSuffix "で"
+
+naiBased :: T.Text -> JConj -> VForm2
+naiBased suf w =
+    VForm2
+        { kanaForm2     = gen . T.pack . naiForm $ w
+        , kanjiForm2    = gen . T.pack . kanjiStem $ w
+        , translForm2   = [T.pack . conjTranslate $ w]
         }
   where
     kanjiStem :: JConj -> String
-    kanjiStem y | null (naiFormK x) = naiForm y
+    kanjiStem y | null (naiFormK w) = naiForm y
                 | otherwise         = naiFormK y
-    gen :: T.Text -> [T.Text]
-    gen     = wordsWithSuffix "ない"
+    gen :: T.Text -> Writing
+    gen     = map (`T.append` suf) . wordsWithSuffix "ない"
 
-dictStem :: JConj -> VForm2
-dictStem x =
+dictBased :: T.Text -> JConj -> VForm2
+dictBased suf w =
     VForm2
-        { kanaForm2     = gen . T.pack . dictForm $ x
-        , kanjiForm2    = gen . T.pack . kanjiStem $ x
-        , translForm2   = [T.pack . conjTranslate $ x]
+        { kanaForm2     = gen . T.pack . dictForm $ w
+        , kanjiForm2    = gen . T.pack . kanjiStem $ w
+        , translForm2   = [T.pack . conjTranslate $ w]
         }
   where
     kanjiStem :: JConj -> String
-    kanjiStem y | null (dictFormK x) = dictForm y
+    kanjiStem y | null (dictFormK w) = dictForm y
                 | otherwise          = dictFormK y
     gen :: T.Text -> [T.Text]
-    gen     = wordsWithSuffix ""
+    gen     = map (`T.append` suf) . wordsWithSuffix ""
 
-masuStem :: JConj -> VForm2
-masuStem x =
+masuBased :: T.Text -> JConj -> VForm2
+masuBased suf w =
     VForm2
-        { kanaForm2     = gen . T.pack . masuForm $ x
-        , kanjiForm2    = gen . T.pack . kanjiStem $ x
-        , translForm2   = [T.pack . conjTranslate $ x]
+        { kanaForm2     = gen . T.pack . masuForm $ w
+        , kanjiForm2    = gen . T.pack . kanjiStem $ w
+        , translForm2   = [T.pack . conjTranslate $ w]
         }
   where
     kanjiStem :: JConj -> String
-    kanjiStem y | null (masuFormK x) = masuForm y
+    kanjiStem y | null (masuFormK w) = masuForm y
                 | otherwise          = masuFormK y
     gen :: T.Text -> [T.Text]
-    gen     = wordsWithSuffix "ます"
+    gen     = map (`T.append` suf) . wordsWithSuffix "ます"
 
-
-sp1 :: VFormSpec
-sp1 = VFormSpec {stem = teStem, newSuf = "ta-koto-ga-arimasu", transMod = (`T.append` "приходилось ли ")}
-
-sp2 :: VFormSpec
-sp2 = VFormSpec {stem = teStem', newSuf = "ta-koto-ga-arimasu", transMod = (`T.append` "приходилось ли ")}
 
 masuSpec :: [VFormSpec]
-masuSpec = [ VFormSpec {stem = masuStem, newSuf = "ます", transMod = id} ]
+masuSpec    = [ defVFormSpec {stem = masuBased "ます", transMod = id} ]
 
 dictSpec :: [VFormSpec]
-dictSpec    = [ VFormSpec {stem = dictStem, newSuf = "", transMod = id} ]
+dictSpec    = [ defVFormSpec {stem = dictBased "", transMod = id} ]
 
-taSpec :: [VFormSpec]
-taSpec      = [ VFormSpec {stem = teStem, newSuf = "た", transMod = id}
-              , VFormSpec {stem = teStem', newSuf = "だ", transMod = id}
-              ]
+taSpec  :: [VFormSpec]
+taSpec      = [ defVFormSpec {stem = teBased "た", transMod = id} ]
 
-naiSpec :: [VFormSpec]
-naiSpec     = [ VFormSpec {stem = naiStem, newSuf = "ない", transMod = id} ]
+taSpec'   :: [VFormSpec]
+taSpec'     = [ defVFormSpec {stem = teBased "だ", transMod = id} ]
+
+naiSpec  :: [VFormSpec]
+naiSpec     = [ defVFormSpec {stem = naiBased "ない", transMod = id} ]
 
 nakattaSpec :: [VFormSpec]
-nakattaSpec = [ VFormSpec {stem = naiStem, newSuf = "なかった", transMod = id} ]
+nakattaSpec = [ defVFormSpec {stem = naiBased "なかった", transMod = id} ]
 
 futsuuSpec :: [VFormSpec]
-futsuuSpec = [ VFormSpec {stem = dictStem, newSuf = "", transMod = id}
-        , VFormSpec {stem = naiStem , newSuf = "ない", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "た", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "だ", transMod = id}
-        , VFormSpec {stem = naiStem , newSuf = "なかった", transMod = id}
-        ]
+futsuuSpec  = dictSpec ++ naiSpec ++ taSpec ++ nakattaSpec
 
-oldVFCompat :: [VFormSpec]
+{-oldVFCompat :: [VFormSpec]
 oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
         , VFormSpec {stem = dictStem, newSuf = "ことができます", transMod = id}
         , VFormSpec {stem = masuStem, newSuf = "ます", transMod = id}
@@ -279,7 +301,7 @@ oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
         , VFormSpec {stem = naiStem , newSuf = "ないでください", transMod = id}
         , VFormSpec {stem = naiStem , newSuf = "なくてもいいです", transMod = id}
         , VFormSpec {stem = naiStem , newSuf = "なければなりません", transMod = id}
-        ]
+        ]-}
 
 genSpec :: VFormSpec -> JConj -> VForm2
 genSpec VFormSpec {..} x =
@@ -300,10 +322,10 @@ genSpec' VFormSpec {..} x =
     in  v
             { kanaForm2 =
                 if null kanaForm2 then []
-                    else map (`T.append` newSuf) $ kanaForm2
+                    else kanaForm2
             , kanjiForm2 =
                 if null kanjiForm2 then []
-                    else map (`T.append` newSuf) $ kanjiForm2
+                    else kanjiForm2
             }
 
 generateForms2 :: Foldable t => [VFormSpec] -> Bool -> t [JConj] -> [T.Text]
@@ -329,6 +351,13 @@ data RunSpec        = RunSpec
                         , questionWriting :: JConj -> VForm2 -> Writing
                         , answerSpec    :: LineSpec
                         , answerWriting :: JConj -> VForm2 -> Writing
+                        }
+defRunSpec :: RunSpec
+defRunSpec      = RunSpec
+                        { questionSpec      = []
+                        , questionWriting   = isKanji False
+                        , answerSpec        = LineSpec []
+                        , answerWriting     = isKanji True
                         }
 
 -- Forms, which should be output on a single line.
@@ -402,45 +431,56 @@ isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAl
             <$> inConjTags "kanji"
 
 ddd :: RunSpec
-ddd     = RunSpec
+ddd     = defRunSpec
             { questionSpec = [LineSpec dictSpec, LineSpec taSpec]
-            , questionWriting = isKanji False
             , answerSpec = LineSpec futsuuSpec
-            , answerWriting = isKanji True
             }
 
 masuDisctRS :: RunSpec
-masuDisctRS = RunSpec
+masuDisctRS = defRunSpec
             { questionSpec = [LineSpec masuSpec]
-            , questionWriting = isKanji False
             , answerSpec = LineSpec dictSpec
-            , answerWriting = isKanji True
             }
 
 futsuuRS :: RunSpec
-futsuuRS    = RunSpec
-            { questionSpec = [LineSpec dictSpec, LineSpec naiSpec, LineSpec taSpec, LineSpec nakattaSpec]
-            , questionWriting = isKanji False
+futsuuRS = defRunSpec
+            { questionSpec = map (LineSpec . (: [])) futsuuSpec
             , answerSpec = LineSpec futsuuSpec
-            , answerWriting = isKanji True
             }
 
 masuFutsuuRS :: RunSpec
-masuFutsuuRS    = RunSpec
+masuFutsuuRS = defRunSpec
             { questionSpec = [LineSpec masuSpec]
-            , questionWriting = isKanji False
             , answerSpec = LineSpec futsuuSpec
-            , answerWriting = isKanji True
             }
 
 -- FIXME: Rewrite `oldVFRS` to properly generate ta/da verb forms.
-oldVFRS :: RunSpec
+{-oldVFRS :: RunSpec
 oldVFRS         = RunSpec
             { questionSpec = map (LineSpec . (: [])) oldVFCompat
             , questionWriting = isKanji False
             , answerSpec = LineSpec masuSpec
             , answerWriting = isKanji True
+            }-}
+
+taRS :: RunSpec
+taRS    = defRunSpec
+            { questionSpec = [LineSpec taSpec]
+            , answerSpec = LineSpec masuSpec
             }
+
+taRS' :: RunSpec
+taRS'   = defRunSpec
+            { questionSpec = [LineSpec taSpec']
+            , answerSpec = LineSpec masuSpec
+            }
+
+nakattaTaRS :: RunSpec
+nakattaTaRS = defRunSpec
+            { questionSpec = [LineSpec nakattaSpec]
+            , answerSpec = LineSpec taSpec
+            }
+
 
 main :: IO ()
 main = do
@@ -450,14 +490,17 @@ main = do
     checkMap mconj'
     let mconj = M.filter (any (inConjLnums (const True))) mconj'
 
-    writeVerbFiles "-futsuu"    ( generateForms2 futsuuSpec False mconj
+    writeVerbFiles "-futsuu2"   ( generateForms2 futsuuSpec False mconj
                                 , generateForms2 futsuuSpec True mconj
                                 )
 
-    writeVerbFiles "-ddd" (unzip $ generateForms4 ddd mconj)
+    writeVerbFiles "-ddd2" (unzip $ generateForms4 ddd mconj)
     --writeVerbFiles "-oldVF" (unzip $ generateForms4 oldVFRS mconj)
-    writeVerbFiles "-dict4" ( unzip $ generateForms4 masuDisctRS mconj)
+    writeVerbFiles "-dict4-2" ( unzip $ generateForms4 masuDisctRS mconj)
     -- FIXME: Is not equivalent of `futsuu`.
-    writeVerbFiles "-futsuu4" ( unzip $ generateForms4 futsuuRS mconj)
-    writeVerbFiles "-futsuu41" ( unzip $ generateForms4 masuFutsuuRS mconj)
+    writeVerbFiles "-futsuu4-2" ( unzip $ generateForms4 futsuuRS mconj)
+    writeVerbFiles "-futsuu41-2" ( unzip $ generateForms4 masuFutsuuRS mconj)
+    writeVerbFiles "-ta2" ( unzip $ generateForms4 taRS mconj)
+    writeVerbFiles "-ta2v" ( unzip $ generateForms4 taRS' mconj)
+    writeVerbFiles "-nakattaTa2" ( unzip $ generateForms4 nakattaTaRS mconj)
 

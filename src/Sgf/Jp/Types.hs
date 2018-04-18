@@ -9,6 +9,7 @@ module Sgf.Jp.Types
     , JConj (..)
     , defJConj
     , testJConj
+    , testJConjVoiced
     )
   where
 
@@ -144,7 +145,23 @@ testJConj = JConj
     , masuForm      = "Masu-form-ます"
     , masuFormK     = "Masu-kanji-form-ます"
     , teForm        = "Te-form-て"
-    , teFormK       = "Te-kanji-form-て, Te-kanji-form2-て"
+    , teFormK       = "Te-kanji-form-て, Te-kanji2-form-て"
+    , naiForm       = "Nai-form-ない"
+    , naiFormK      = "Nai-kanji-form-ない"
+    , conjTranslate = "Translate"
+    , conjTags      = "test"
+    }
+
+testJConjVoiced :: JConj
+testJConjVoiced = JConj
+    { conjNumber    = 1111
+    , conjReference = "M111-W23    M222-W1 "
+    , dictForm      = "Dict-form"
+    , dictFormK     = "Dict-kanji-form"
+    , masuForm      = "Masu-form-ます"
+    , masuFormK     = "Masu-kanji-form-ます"
+    , teForm        = "Te-form-で"
+    , teFormK       = "Te-kanji-form-で, Te-kanji2-form-で"
     , naiForm       = "Nai-form-ない"
     , naiFormK      = "Nai-kanji-form-ない"
     , conjTranslate = "Translate"
