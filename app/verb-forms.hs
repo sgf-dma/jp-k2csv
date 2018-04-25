@@ -303,19 +303,6 @@ oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
         , VFormSpec {stem = naiStem , newSuf = "なければなりません", transMod = id}
         ]-}
 
-genSpec :: VFormSpec -> JConj -> VForm2
-genSpec VFormSpec {..} x =
-    let v@(VForm2 {..}) = stem x
-        vn = conjNumber x
-    in  v
-            { kanaForm2 =
-                if null kanaForm2 then []
-                    else flip snoc (T.pack . show $ vn) . map (`T.append` newSuf) $ kanaForm2
-            , kanjiForm2 =
-                if null kanjiForm2 then []
-                    else flip snoc (T.pack . show $ vn) . map (`T.append` newSuf) $ kanjiForm2
-            }
-
 genSpec' :: VFormSpec -> JConj -> VForm2
 genSpec' VFormSpec {..} x =
     let v@(VForm2 {..}) = stem x
@@ -327,21 +314,6 @@ genSpec' VFormSpec {..} x =
                 if null kanjiForm2 then []
                     else kanjiForm2
             }
-
-generateForms2 :: Foldable t => [VFormSpec] -> Bool -> t [JConj] -> [T.Text]
-generateForms2 vsp isKanjiAlways = foldr go []
-  where
-    isKanji :: JConj -> Bool
-    isKanji = (isKanjiAlways ||) <$> inConjTags "kanji"
-    go :: [JConj] -> [T.Text] -> [T.Text]
-    go = flip $ foldr ((++) . filter (not . T.null) . go')
-    go' :: JConj -> [T.Text]
-    go'   = do
-        b  <- isKanji
-        vs <- mapM genSpec vsp
-        if b
-          then return (map (writingToLine . kanjiForm2) $ vs)
-          else return (map (writingToLine . kanaForm2)  $ vs)
 
 -- | Answer is always "full" (contains all forms), thus the answer should also
 -- be on a single line. But questions may be different and each may contain a
@@ -381,15 +353,19 @@ zipM mxs mys    = do
     ys <- mys
     return (zip xs ys)
 
-generateForms4 :: Foldable t => RunSpec -> t [JConj] -> [(T.Text, T.Text)]
-generateForms4 RunSpec{..} = foldr ((++) . go) []
+generateForms' :: RunSpec -> JConj -> [(T.Text, T.Text)]
+generateForms' RunSpec{..} = zipM questions (sequence (repeat answer))
   where
     questions :: JConj -> [T.Text]
     questions   = questionWriting >>= genLine' questionSpec
     answer :: JConj -> T.Text
-    answer  = answerWriting >>= genLine answerSpec
+    answer      = answerWriting >>= genLine answerSpec
+
+generateForms :: Foldable t => [RunSpec] -> t [JConj] -> [(T.Text, T.Text)]
+generateForms rs    = foldr ((++) . go) []
+  where
     go :: [JConj] -> [(T.Text, T.Text)]
-    go = concatMap (zipM questions (sequence (repeat answer)))
+    go ys = rs >>= \r -> ys >>= generateForms' r
 
 infixl 3 <++>
 (<++>) :: Applicative f => f [a] -> f [a] -> f [a]
@@ -448,6 +424,25 @@ futsuuRS = defRunSpec
             , answerSpec = LineSpec futsuuSpec
             }
 
+futsuuRS5 :: [RunSpec]
+futsuuRS5 = [ defRunSpec
+                { questionSpec = [LineSpec dictSpec]
+                , answerSpec = LineSpec dictSpec
+                }
+            , defRunSpec
+                { questionSpec = [LineSpec naiSpec]
+                , answerSpec = LineSpec naiSpec
+                }
+            , defRunSpec
+                { questionSpec = [LineSpec taSpec]
+                , answerSpec = LineSpec taSpec
+                }
+            , defRunSpec
+                { questionSpec = [LineSpec nakattaSpec]
+                , answerSpec = LineSpec nakattaSpec
+                }
+            ]
+
 masuFutsuuRS :: RunSpec
 masuFutsuuRS = defRunSpec
             { questionSpec = [LineSpec masuSpec]
@@ -490,17 +485,13 @@ main = do
     checkMap mconj'
     let mconj = M.filter (any (inConjLnums (const True))) mconj'
 
-    writeVerbFiles "-futsuu2"   ( generateForms2 futsuuSpec False mconj
-                                , generateForms2 futsuuSpec True mconj
-                                )
+    writeVerbFiles "-futsuu5"   (unzip $ generateForms futsuuRS5 mconj)
 
-    writeVerbFiles "-ddd2" (unzip $ generateForms4 ddd mconj)
-    --writeVerbFiles "-oldVF" (unzip $ generateForms4 oldVFRS mconj)
-    writeVerbFiles "-dict4-2" ( unzip $ generateForms4 masuDisctRS mconj)
-    -- FIXME: Is not equivalent of `futsuu`.
-    writeVerbFiles "-futsuu4-2" ( unzip $ generateForms4 futsuuRS mconj)
-    writeVerbFiles "-futsuu41-2" ( unzip $ generateForms4 masuFutsuuRS mconj)
-    writeVerbFiles "-ta2" ( unzip $ generateForms4 taRS mconj)
-    writeVerbFiles "-ta2v" ( unzip $ generateForms4 taRS' mconj)
-    writeVerbFiles "-nakattaTa2" ( unzip $ generateForms4 nakattaTaRS mconj)
+    writeVerbFiles "-ddd5" (unzip $ generateForms [ddd] mconj)
+    writeVerbFiles "-dict5"   ( unzip $ generateForms [masuDisctRS] mconj)
+    writeVerbFiles "-futsuu5-2" ( unzip $ generateForms [futsuuRS] mconj)
+    writeVerbFiles "-futsuu51" ( unzip $ generateForms [masuFutsuuRS] mconj)
+    writeVerbFiles "-ta5" ( unzip $ generateForms [taRS] mconj)
+    writeVerbFiles "-ta5v" ( unzip $ generateForms [taRS'] mconj)
+    writeVerbFiles "-nakattaTa5" ( unzip $ generateForms [nakattaTaRS] mconj)
 
