@@ -151,18 +151,10 @@ data VForm2         = VForm2
                         }
   deriving (Show)
 
-data VFormSpec       = VFormSpec
-                        { stem :: JConj -> VForm2
-                        , newSuf :: T.Text
-                        , transMod :: T.Text -> T.Text
-                        }
+data VFormSpec       = VFormSpec { stem :: JConj -> VForm2 }
 
 defVFormSpec :: VFormSpec
-defVFormSpec        = VFormSpec
-                        { stem = undefined
-                        , newSuf = ""
-                        , transMod = id
-                        }
+defVFormSpec        = VFormSpec { stem = undefined }
 
 -- FIXME: Complete table.
 voicedChars :: [(Char, Char)]
@@ -258,50 +250,25 @@ masuBased suf w =
 
 
 masuSpec :: [VFormSpec]
-masuSpec    = [ defVFormSpec {stem = masuBased "ます", transMod = id} ]
+masuSpec    = [ defVFormSpec {stem = masuBased "ます"} ]
 
 dictSpec :: [VFormSpec]
-dictSpec    = [ defVFormSpec {stem = dictBased "", transMod = id} ]
+dictSpec    = [ defVFormSpec {stem = dictBased ""} ]
 
 taSpec  :: [VFormSpec]
-taSpec      = [ defVFormSpec {stem = teBased "た", transMod = id} ]
+taSpec      = [ defVFormSpec {stem = teBased "た"} ]
 
 taSpec'   :: [VFormSpec]
-taSpec'     = [ defVFormSpec {stem = teBased "だ", transMod = id} ]
+taSpec'     = [ defVFormSpec {stem = teBased "だ"} ]
 
 naiSpec  :: [VFormSpec]
-naiSpec     = [ defVFormSpec {stem = naiBased "ない", transMod = id} ]
+naiSpec     = [ defVFormSpec {stem = naiBased "ない"} ]
 
 nakattaSpec :: [VFormSpec]
-nakattaSpec = [ defVFormSpec {stem = naiBased "なかった", transMod = id} ]
+nakattaSpec = [ defVFormSpec {stem = naiBased "なかった"} ]
 
 futsuuSpec :: [VFormSpec]
 futsuuSpec  = dictSpec ++ naiSpec ++ taSpec ++ nakattaSpec
-
-{-oldVFCompat :: [VFormSpec]
-oldVFCompat =  [ VFormSpec {stem = dictStem, newSuf = "前に", transMod = id}
-        , VFormSpec {stem = dictStem, newSuf = "ことができます", transMod = id}
-        , VFormSpec {stem = masuStem, newSuf = "ます", transMod = id}
-        , VFormSpec {stem = masuStem, newSuf = "たい", transMod = id}
-        , VFormSpec {stem = masuStem, newSuf = "たくない", transMod = id}
-        , VFormSpec {stem = masuStem, newSuf = "たかった", transMod = id}
-        , VFormSpec {stem = masuStem, newSuf = "たくなかった", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "てください", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "てもいいです", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "てはいけません", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "ています", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "でください", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "でもいいです", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "ではいけません", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "でいます", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "たことがあります", transMod = id}
-        , VFormSpec {stem = teStem  , newSuf = "たり", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "だことがあります", transMod = id}
-        , VFormSpec {stem = teStem' , newSuf = "だり", transMod = id}
-        , VFormSpec {stem = naiStem , newSuf = "ないでください", transMod = id}
-        , VFormSpec {stem = naiStem , newSuf = "なくてもいいです", transMod = id}
-        , VFormSpec {stem = naiStem , newSuf = "なければなりません", transMod = id}
-        ]-}
 
 genSpec' :: VFormSpec -> JConj -> VForm2
 genSpec' VFormSpec {..} x =
@@ -448,15 +415,6 @@ masuFutsuuRS = defRunSpec
             { questionSpec = [LineSpec masuSpec]
             , answerSpec = LineSpec futsuuSpec
             }
-
--- FIXME: Rewrite `oldVFRS` to properly generate ta/da verb forms.
-{-oldVFRS :: RunSpec
-oldVFRS         = RunSpec
-            { questionSpec = map (LineSpec . (: [])) oldVFCompat
-            , questionWriting = isKanji False
-            , answerSpec = LineSpec masuSpec
-            , answerWriting = isKanji True
-            }-}
 
 taRS :: RunSpec
 taRS    = defRunSpec
