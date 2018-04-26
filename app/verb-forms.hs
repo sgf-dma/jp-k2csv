@@ -10,16 +10,20 @@ import           Data.Tuple
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
+import           Data.Yaml
+import           Data.Aeson.Types
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
 import qualified Data.Text.Encoding     as T
 import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Lazy   as BL
 import qualified Data.Attoparsec.Text   as A
 import           Control.Applicative
 import           Control.Arrow
 import           Control.Monad
 import           System.Random.Shuffle
 
+import Data.Aeson.Encode.Pretty
 import qualified Sgf.Data.Text.Table    as T
 
 import Data.Function
@@ -156,6 +160,13 @@ data VFormSpec       = VFormSpec { stem :: JConj -> VForm2 }
 defVFormSpec :: VFormSpec
 defVFormSpec        = VFormSpec { stem = undefined }
 
+instance FromJSON VFormSpec where
+    parseJSON (Object v)    = do
+        r <- v .: "base"
+        f <- maybe  (fail "Can't find base function") return
+                $ lookup r baseForms
+        VFormSpec . f <$> v .: "new"
+
 -- FIXME: Complete table.
 voicedChars :: [(Char, Char)]
 voicedChars     = [ ( 'て', 'で'), ( 'た', 'だ' ), ('T', 'D') ]
@@ -180,6 +191,13 @@ maybeNotEmpty xs
 
 both :: Arrow a => a b c -> a (b, b) (c, c)
 both f  = f *** f
+
+baseForms :: [(T.Text, T.Text -> JConj -> VForm2)]
+baseForms   =   [ ("teBased", teBased)
+                , ("naiBased", naiBased)
+                , ("dictBased", dictBased)
+                , ("masuBased", masuBased)
+                ]
 
 teBased :: T.Text -> JConj -> VForm2
 teBased suf w =
@@ -285,22 +303,38 @@ genSpec' VFormSpec {..} x =
 -- | Answer is always "full" (contains all forms), thus the answer should also
 -- be on a single line. But questions may be different and each may contain a
 -- different number of forms.
-data RunSpec        = RunSpec
+data QSpec        = QSpec
                         { questionSpec  :: [LineSpec]
                         , questionWriting :: JConj -> VForm2 -> Writing
                         , answerSpec    :: LineSpec
                         , answerWriting :: JConj -> VForm2 -> Writing
                         }
-defRunSpec :: RunSpec
-defRunSpec      = RunSpec
+defQSpec :: QSpec
+defQSpec      = QSpec
                         { questionSpec      = []
                         , questionWriting   = isKanji False
                         , answerSpec        = LineSpec []
                         , answerWriting     = isKanji True
                         }
 
+instance FromJSON QSpec where
+    parseJSON     = withObject "question" $ \v -> QSpec
+                                <$> v .: "front"
+                                <*> pure (isKanji False)
+                                <*> v .: "back"
+                                <*> pure (isKanji True)
+
+data RunSpec = RunSpec {runName :: T.Text, runSpec :: [QSpec]}
+
+instance FromJSON RunSpec where
+    parseJSON       = withObject "RunSpec" $ \v -> RunSpec
+                        <$> v .: "name"
+                        <*> v .: "questions"
 -- Forms, which should be output on a single line.
 data LineSpec       = LineSpec {lineSpec :: [VFormSpec]}
+
+instance FromJSON LineSpec where
+    parseJSON   = withObject "line" $ \v -> LineSpec <$> v .: "line"
 
 genLine :: LineSpec -> (VForm2 -> Writing) -> JConj -> T.Text
 genLine (LineSpec vsp) f    = do
@@ -320,19 +354,25 @@ zipM mxs mys    = do
     ys <- mys
     return (zip xs ys)
 
-generateForms' :: RunSpec -> JConj -> [(T.Text, T.Text)]
-generateForms' RunSpec{..} = zipM questions (sequence (repeat answer))
+generateForms' :: QSpec -> JConj -> [(T.Text, T.Text)]
+generateForms' QSpec{..} = zipM questions (sequence (repeat answer))
   where
     questions :: JConj -> [T.Text]
     questions   = questionWriting >>= genLine' questionSpec
     answer :: JConj -> T.Text
     answer      = answerWriting >>= genLine answerSpec
 
-generateForms :: Foldable t => [RunSpec] -> t [JConj] -> [(T.Text, T.Text)]
+generateForms :: Foldable t => [QSpec] -> t [JConj] -> [(T.Text, T.Text)]
 generateForms rs    = foldr ((++) . go) []
   where
     go :: [JConj] -> [(T.Text, T.Text)]
     go ys = rs >>= \r -> ys >>= generateForms' r
+
+generateFormsR :: Foldable t => RunSpec -> t [JConj] -> [(T.Text, T.Text)]
+generateFormsR RunSpec{..}  = foldr ((++) . go) []
+  where
+    go :: [JConj] -> [(T.Text, T.Text)]
+    go ys = runSpec >>= \r -> ys >>= generateForms' r
 
 infixl 3 <++>
 (<++>) :: Applicative f => f [a] -> f [a] -> f [a]
@@ -357,6 +397,9 @@ writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
     T.writeFile qrfn (T.unlines randFormsQ)
     T.writeFile arfn (T.unlines randFormsA)
 
+writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
+writeRunSpec mcj RunSpec{..} = writeVerbFiles ("-" ++ T.unpack runName) (unzip $ generateForms runSpec mcj)
+
 data LNum       = LNum {lessonNum :: Int, seqNum :: Int}
   deriving (Show)
 
@@ -373,63 +416,63 @@ isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
-ddd :: RunSpec
-ddd     = defRunSpec
+ddd :: QSpec
+ddd     = defQSpec
             { questionSpec = [LineSpec dictSpec, LineSpec taSpec]
             , answerSpec = LineSpec futsuuSpec
             }
 
-masuDisctRS :: RunSpec
-masuDisctRS = defRunSpec
+masuDisctRS :: QSpec
+masuDisctRS = defQSpec
             { questionSpec = [LineSpec masuSpec]
             , answerSpec = LineSpec dictSpec
             }
 
-futsuuRS :: RunSpec
-futsuuRS = defRunSpec
+futsuuRS :: QSpec
+futsuuRS = defQSpec
             { questionSpec = map (LineSpec . (: [])) futsuuSpec
             , answerSpec = LineSpec futsuuSpec
             }
 
-futsuuRS5 :: [RunSpec]
-futsuuRS5 = [ defRunSpec
+futsuuRS5 :: [QSpec]
+futsuuRS5 = [ defQSpec
                 { questionSpec = [LineSpec dictSpec]
                 , answerSpec = LineSpec dictSpec
                 }
-            , defRunSpec
+            , defQSpec
                 { questionSpec = [LineSpec naiSpec]
                 , answerSpec = LineSpec naiSpec
                 }
-            , defRunSpec
+            , defQSpec
                 { questionSpec = [LineSpec taSpec]
                 , answerSpec = LineSpec taSpec
                 }
-            , defRunSpec
+            , defQSpec
                 { questionSpec = [LineSpec nakattaSpec]
                 , answerSpec = LineSpec nakattaSpec
                 }
             ]
 
-masuFutsuuRS :: RunSpec
-masuFutsuuRS = defRunSpec
+masuFutsuuRS :: QSpec
+masuFutsuuRS = defQSpec
             { questionSpec = [LineSpec masuSpec]
             , answerSpec = LineSpec futsuuSpec
             }
 
-taRS :: RunSpec
-taRS    = defRunSpec
+taRS :: QSpec
+taRS    = defQSpec
             { questionSpec = [LineSpec taSpec]
             , answerSpec = LineSpec masuSpec
             }
 
-taRS' :: RunSpec
-taRS'   = defRunSpec
+taRS' :: QSpec
+taRS'   = defQSpec
             { questionSpec = [LineSpec taSpec']
             , answerSpec = LineSpec masuSpec
             }
 
-nakattaTaRS :: RunSpec
-nakattaTaRS = defRunSpec
+nakattaTaRS :: QSpec
+nakattaTaRS = defQSpec
             { questionSpec = [LineSpec nakattaSpec]
             , answerSpec = LineSpec taSpec
             }
@@ -443,7 +486,14 @@ main = do
     checkMap mconj'
     let mconj = M.filter (any (inConjLnums (const True))) mconj'
 
+    t <- decodeFileEither "verb-forms.yaml"
+    tv <- case t of
+      Right tv  -> BL.putStr (encodePretty (tv :: Value)) >> return tv
+      Left e    -> putStrLn (prettyPrintParseException e) >> error "Huh.."
+    let futsuu5y = either (\e -> error e) id (parseEither parseJSON tv)
+    --futsuu5y <- decodeFileEither "verb-forms.yaml" >>= either (\e -> print e >> error "huh") (\(RunSpec {..}) -> pure runSpec)
     writeVerbFiles "-futsuu5"   (unzip $ generateForms futsuuRS5 mconj)
+    mapM_ (writeRunSpec mconj) (futsuu5y :: [RunSpec])
 
     writeVerbFiles "-ddd5" (unzip $ generateForms [ddd] mconj)
     writeVerbFiles "-dict5"   ( unzip $ generateForms [masuDisctRS] mconj)

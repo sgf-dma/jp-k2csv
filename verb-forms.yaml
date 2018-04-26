@@ -1,0 +1,89 @@
+---
+
+- name: "futsuu5z"
+  questions:
+    - front:
+        - line: &def
+          - base: "teBased"
+            new:  &abc "た"
+      back:
+        line: *def
+
+- name: "futsuu5y"
+  questions:
+    - front:
+        - line: &dict
+          - base: "dictBased"
+            new:  ""
+      back:
+        line: *dict
+    - front:
+        - line: &nai
+          - base: "naiBased"
+            new:  "ない"
+      back:
+        line: *nai
+    - front:
+        - line: &ta
+          - base: "teBased"
+            new:  "た"
+      back:
+        line: *ta
+    - front:
+        - line: &nakatta
+          - base: "naiBased"
+            new:  "なかった"
+      back:
+        line: *nakatta
+
+- name: "ddd5y"
+  questions:
+    - front:
+        - line: *dict
+        - line: *ta
+      back:
+        line: &futsuu
+          - <<: *dict
+          - <<: *nai
+          - <<: *ta
+          - <<: *nakatta
+
+
+
+
+#run:
+#  - name: "futsuu5"
+#    - question:
+#      front:
+#        - line:
+#          - base: "dictBased"
+#            new:  ""
+#      back:
+#        line:
+#          - base: "dictBased"
+#            new:  ""
+#    - question:
+#      front:
+#        - line:
+#           - base: "teBased"
+#             new:  "た"
+#      back:
+#        line:
+#          - base: "teBased"
+#            new:  "た"
+#  - name: "futsuu"
+#    - question:
+#      front:
+#        - line:
+#          - base: "dictBased"
+#            new:  ""
+#        - line:
+#          - base: "teBased"
+#            new:  "た"
+#      back:
+#        line:
+#          - base: "dictBased"
+#            new:  ""
+#          - base: "teBased"
+#            new:  "た"
+
