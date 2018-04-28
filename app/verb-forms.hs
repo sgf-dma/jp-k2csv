@@ -481,6 +481,33 @@ nakattaTaRS = defQSpec
             , answerSpec = LineSpec taSpec
             }
 
+square :: [QSpec]
+square      = [ defQSpec
+                    { questionSpec  = [LineSpec naiSpec]
+                    , answerSpec    = LineSpec taSpec
+                    }
+              , defQSpec
+                    { questionSpec  = [LineSpec taSpec]
+                    , answerSpec    = LineSpec nakattaSpec
+                    }
+              , defQSpec
+                    { questionSpec  = [LineSpec nakattaSpec]
+                    , answerSpec    = LineSpec dictSpec
+                    }
+              ]
+
+cross :: [QSpec]
+cross      = [ defQSpec
+                    { questionSpec  = [LineSpec naiSpec]
+                    , answerSpec    = LineSpec taSpec
+                    }
+              , defQSpec
+                    { questionSpec  = [LineSpec taSpec]
+                    , answerSpec    = LineSpec nakattaSpec
+                    }
+              ]
+
+-- FIXME: Add masu forms to futsuu forms.
 
 main :: IO ()
 main = do
@@ -506,4 +533,5 @@ main = do
     writeVerbFiles "-ta5" ( unzip $ generateForms [taRS] mconj)
     writeVerbFiles "-ta5v" ( unzip $ generateForms [taRS'] mconj)
     writeVerbFiles "-nakattaTa5" ( unzip $ generateForms [nakattaTaRS] mconj)
+    writeVerbFiles "-cross" ( unzip $ generateForms cross mconj)
 
