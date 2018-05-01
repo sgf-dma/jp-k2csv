@@ -515,7 +515,8 @@ main = do
         (\e -> error $ "Can't parse JConj table " ++ e)
         (return . buildMap conjNumber)
     checkMap mconj'
-    let mconj = M.filter (any (inConjLnums (const True))) mconj'
+    --let mconj = M.filter (any (inConjLnums (const True))) mconj'
+    let mconj = M.filter (any (inConjLnums (\LNum{..} -> if lessonNum > 20 then True else False))) mconj'
 
     t <- decodeFileEither "verb-forms.yaml"
     tv <- case t of
