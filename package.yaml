@@ -63,6 +63,7 @@ executables:
       - k2csv
       - yaml
       - aeson-pretty
+      - vector
 
 tests:
   k2csv-test:

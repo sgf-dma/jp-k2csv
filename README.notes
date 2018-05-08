@@ -1,0 +1,75 @@
+## Additional `vform` key level.
+
+I may not require `vform` key in yaml representation of `VFormSpec`. Then the
+yaml will look like:
+
+    - front:
+        - line: &ta
+          - base: "teBased"
+            new:  "た"
+
+So, yaml object representing `VFormSpec` is an element of yaml array assigned
+to `line` field. Anchor `ta` is assigned to a _list_ ([sequence][2]). But if
+during construction of `back` side i want to use this anchor, i need it to be
+an object, because yaml can't merge lists.  I.e.  essentially i want this:
+
+      back:
+        line:
+          - *ta
+          - *nai
+
+But this results in _list of lists_ , like `[[ta], [nai]]`. I may use a
+"feature" of [`merge`][1], which does not work with [sequence][2] objects
+(lists), and, when used with sequence, just resolves anchor to its first
+element:
+
+      back:
+        line:
+          - <<: *ta
+          - <<: *nai
+
+But this relies on a feature of merge, which is not stated in specification
+and probably is specific to `Data.Yaml` implementation.
+
+The alternative is to create another named object `vform` and assign anchor to
+it:
+
+    - front:
+        - line: &dictL
+          - vform: &dict
+              base: "dictBased"
+              new:  ""
+
+So now anchor `dict` is assigned to a [mapping][3] (yaml object). This changes
+anchor usage to:
+
+    - front:
+        - line:
+          - vform: *dict
+
+I.e. if i want to use anchor `dict`, i need to define _explicitly a list and
+write `vform` key_. Compare this to
+
+    - front:
+        - line: *ta
+
+which will be, when anchor is assigned to a list. Though, i may assign
+_another_ anchor to a list - `dictL`, then with new syntax `front` side will
+look like:
+
+    - front:
+        - line:
+          - *dictL
+
+The `back` side now looks like:
+
+      back:
+        line:
+          - vform: *dict
+
+and is completely correct per standard.
+
+[1]: http://yaml.org/type/merge.html
+[2]: http://yaml.org/spec/1.2/spec.html#sequence//
+[3]: http://yaml.org/spec/1.2/spec.html#mapping//
+

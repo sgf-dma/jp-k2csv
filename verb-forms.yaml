@@ -4,48 +4,55 @@
   questions:
     - front:
         - line: &def
-          - base: "teBased"
-            new:  &abc "た"
+          - vform:
+              base: "teBased"
+              new:  &abc "た"
       back:
         line: *def
 
 - name: "futsuu5y"
   questions:
     - front:
-        - line: &dict
-          - base: "dictBased"
-            new:  ""
+        - line: &dictL
+          - vform: &dict
+              base: "dictBased"
+              new:  ""
       back:
-        line: *dict
+        line:
+          - vform: *dict
     - front:
         - line: &nai
-          - base: "naiBased"
-            new:  "ない"
+          - vform:
+              base: "naiBased"
+              new:  "ない"
       back:
         line: *nai
     - front:
-        - line: &ta
-          - base: "teBased"
-            new:  "た"
+        - line: &taL
+          - vform: &ta
+              base: "teBased"
+              new:  "た"
       back:
-        line: *ta
+        line: *taL
     - front:
         - line: &nakatta
-          - base: "naiBased"
-            new:  "なかった"
+          - vform:
+              base: "naiBased"
+              new:  "なかった"
       back:
         line: *nakatta
 
 - name: "ddd5y"
   questions:
     - front:
-        - line: *dict
-        - line: *ta
+        - line:
+          - vform: *dict
+        - line: *taL
       back:
         line: &futsuu
-          - <<: *dict
+          - vform: *dict
           - <<: *nai
-          - <<: *ta
+          - vform: *ta
           - <<: *nakatta
 
 

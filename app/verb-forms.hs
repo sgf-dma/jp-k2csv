@@ -24,6 +24,7 @@ import           Control.Monad
 import           System.Random.Shuffle
 
 import Data.Aeson.Encode.Pretty
+import qualified Data.Vector            as V
 import qualified Sgf.Data.Text.Table    as T
 
 import Data.Function
@@ -155,17 +156,20 @@ data VForm2         = VForm2
                         }
   deriving (Show)
 
-data VFormSpec       = VFormSpec { stem :: JConj -> VForm2 }
+data VFormSpec      = VFormSpec { stem :: JConj -> VForm2 }
 
 defVFormSpec :: VFormSpec
 defVFormSpec        = VFormSpec { stem = undefined }
 
 instance FromJSON VFormSpec where
-    parseJSON (Object v)    = do
-        r <- v .: "base"
-        f <- maybe  (fail "Can't find base function") return
-                $ lookup r baseForms
-        VFormSpec . f <$> v .: "new"
+    parseJSON = withObject "vform" $ \v -> explicitParseField go v "vform"
+      where
+        go :: Value -> Parser VFormSpec
+        go = withObject "Object" $ \v -> do
+            r <- v .: "base"
+            f <- maybe  (fail "Can't find base function") return
+                    $ lookup r baseForms
+            VFormSpec . f <$> v .: "new"
 
 -- FIXME: Complete table.
 voicedChars :: [(Char, Char)]
