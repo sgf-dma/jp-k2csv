@@ -24,7 +24,6 @@ import           Control.Monad
 import           System.Random.Shuffle
 
 import Data.Aeson.Encode.Pretty
-import qualified Data.Vector            as V
 import qualified Sgf.Data.Text.Table    as T
 
 import Data.Function
@@ -271,27 +270,6 @@ masuBased suf w =
     gen     = map (`T.append` suf) . wordsWithSuffix "ます"
 
 
-masuSpec :: [VFormSpec]
-masuSpec    = [ defVFormSpec {stem = masuBased "ます"} ]
-
-dictSpec :: [VFormSpec]
-dictSpec    = [ defVFormSpec {stem = dictBased ""} ]
-
-taSpec  :: [VFormSpec]
-taSpec      = [ defVFormSpec {stem = teBased "た"} ]
-
-taSpec'   :: [VFormSpec]
-taSpec'     = [ defVFormSpec {stem = teBased "だ"} ]
-
-naiSpec  :: [VFormSpec]
-naiSpec     = [ defVFormSpec {stem = naiBased "ない"} ]
-
-nakattaSpec :: [VFormSpec]
-nakattaSpec = [ defVFormSpec {stem = naiBased "なかった"} ]
-
-futsuuSpec :: [VFormSpec]
-futsuuSpec  = dictSpec ++ naiSpec ++ taSpec ++ nakattaSpec
-
 genSpec' :: VFormSpec -> JConj -> VForm2
 genSpec' VFormSpec {..} x =
     let v@(VForm2 {..}) = stem x
@@ -420,93 +398,6 @@ isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
-ddd :: QSpec
-ddd     = defQSpec
-            { questionSpec = [LineSpec dictSpec, LineSpec taSpec]
-            , answerSpec = LineSpec futsuuSpec
-            }
-
-masuDisctRS :: QSpec
-masuDisctRS = defQSpec
-            { questionSpec = [LineSpec masuSpec]
-            , answerSpec = LineSpec dictSpec
-            }
-
-futsuuRS :: QSpec
-futsuuRS = defQSpec
-            { questionSpec = map (LineSpec . (: [])) futsuuSpec
-            , answerSpec = LineSpec futsuuSpec
-            }
-
-futsuuRS5 :: [QSpec]
-futsuuRS5 = [ defQSpec
-                { questionSpec = [LineSpec dictSpec]
-                , answerSpec = LineSpec dictSpec
-                }
-            , defQSpec
-                { questionSpec = [LineSpec naiSpec]
-                , answerSpec = LineSpec naiSpec
-                }
-            , defQSpec
-                { questionSpec = [LineSpec taSpec]
-                , answerSpec = LineSpec taSpec
-                }
-            , defQSpec
-                { questionSpec = [LineSpec nakattaSpec]
-                , answerSpec = LineSpec nakattaSpec
-                }
-            ]
-
-masuFutsuuRS :: QSpec
-masuFutsuuRS = defQSpec
-            { questionSpec = [LineSpec masuSpec]
-            , answerSpec = LineSpec futsuuSpec
-            }
-
-taRS :: QSpec
-taRS    = defQSpec
-            { questionSpec = [LineSpec taSpec]
-            , answerSpec = LineSpec masuSpec
-            }
-
-taRS' :: QSpec
-taRS'   = defQSpec
-            { questionSpec = [LineSpec taSpec']
-            , answerSpec = LineSpec masuSpec
-            }
-
-nakattaTaRS :: QSpec
-nakattaTaRS = defQSpec
-            { questionSpec = [LineSpec nakattaSpec]
-            , answerSpec = LineSpec taSpec
-            }
-
-square :: [QSpec]
-square      = [ defQSpec
-                    { questionSpec  = [LineSpec naiSpec]
-                    , answerSpec    = LineSpec taSpec
-                    }
-              , defQSpec
-                    { questionSpec  = [LineSpec taSpec]
-                    , answerSpec    = LineSpec nakattaSpec
-                    }
-              , defQSpec
-                    { questionSpec  = [LineSpec nakattaSpec]
-                    , answerSpec    = LineSpec dictSpec
-                    }
-              ]
-
-cross :: [QSpec]
-cross      = [ defQSpec
-                    { questionSpec  = [LineSpec naiSpec]
-                    , answerSpec    = LineSpec taSpec
-                    }
-              , defQSpec
-                    { questionSpec  = [LineSpec taSpec]
-                    , answerSpec    = LineSpec nakattaSpec
-                    }
-              ]
-
 -- FIXME: Add masu forms to futsuu forms.
 
 main :: IO ()
@@ -522,17 +413,6 @@ main = do
     tv <- case t of
       Right tv  -> BL.putStr (encodePretty (tv :: Value)) >> return tv
       Left e    -> putStrLn (prettyPrintParseException e) >> error "Huh.."
-    let futsuu5y = either (\e -> error e) id (parseEither parseJSON tv)
-    --futsuu5y <- decodeFileEither "verb-forms.yaml" >>= either (\e -> print e >> error "huh") (\(RunSpec {..}) -> pure runSpec)
-    writeVerbFiles "-futsuu5"   (unzip $ generateForms futsuuRS5 mconj)
-    mapM_ (writeRunSpec mconj) (futsuu5y :: [RunSpec])
-
-    writeVerbFiles "-ddd5" (unzip $ generateForms [ddd] mconj)
-    writeVerbFiles "-dict5"   ( unzip $ generateForms [masuDisctRS] mconj)
-    writeVerbFiles "-futsuu5-2" ( unzip $ generateForms [futsuuRS] mconj)
-    writeVerbFiles "-futsuu51" ( unzip $ generateForms [masuFutsuuRS] mconj)
-    writeVerbFiles "-ta5" ( unzip $ generateForms [taRS] mconj)
-    writeVerbFiles "-ta5v" ( unzip $ generateForms [taRS'] mconj)
-    writeVerbFiles "-nakattaTa5" ( unzip $ generateForms [nakattaTaRS] mconj)
-    writeVerbFiles "-cross" ( unzip $ generateForms cross mconj)
+    let cf = either (\e -> error e) id (parseEither parseJSON tv)
+    mapM_ (writeRunSpec mconj) (cf :: [RunSpec])
 

@@ -10,7 +10,7 @@
       back:
         line: *def
 
-- name: "futsuu5y"
+- name: "futsuu5"
   questions:
     - front:
         - line: &dictL
@@ -18,15 +18,14 @@
               base: "dictBased"
               new:  ""
       back:
-        line:
-          - vform: *dict
+        line: *dictL
     - front:
-        - line: &nai
-          - vform:
+        - line: &naiL
+          - vform: &nai
               base: "naiBased"
               new:  "ない"
       back:
-        line: *nai
+        line: *naiL
     - front:
         - line: &taL
           - vform: &ta
@@ -35,62 +34,89 @@
       back:
         line: *taL
     - front:
-        - line: &nakatta
-          - vform:
+        - line: &nakattaL
+          - vform: &nakatta
               base: "naiBased"
               new:  "なかった"
       back:
-        line: *nakatta
+        line: *nakattaL
 
-- name: "ddd5y"
+- name: "ddd5"
   questions:
     - front:
-        - line:
-          - vform: *dict
+        - line: *dictL
         - line: *taL
       back:
-        line: &futsuu
+        line: &futsuuL
           - vform: *dict
-          - <<: *nai
+          - vform: *nai
           - vform: *ta
-          - <<: *nakatta
+          - vform: *nakatta
 
+- name: "dict5"
+  questions:
+    - front:
+        - line: &masuL
+          - vform: &masu
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line: *dictL
 
+- name: "futsuu5-2"
+  questions:
+    - front:
+        - line: *dictL
+        - line: *naiL
+        - line: *taL
+        - line: *nakattaL
+      back:
+        line: *futsuuL
 
+- name: "futsuu51"
+  questions:
+    - front:
+        - line: *masuL
+      back:
+        line: *futsuuL
 
-#run:
-#  - name: "futsuu5"
-#    - question:
-#      front:
-#        - line:
-#          - base: "dictBased"
-#            new:  ""
-#      back:
-#        line:
-#          - base: "dictBased"
-#            new:  ""
-#    - question:
-#      front:
-#        - line:
-#           - base: "teBased"
-#             new:  "た"
-#      back:
-#        line:
-#          - base: "teBased"
-#            new:  "た"
-#  - name: "futsuu"
-#    - question:
-#      front:
-#        - line:
-#          - base: "dictBased"
-#            new:  ""
-#        - line:
-#          - base: "teBased"
-#            new:  "た"
-#      back:
-#        line:
-#          - base: "dictBased"
-#            new:  ""
-#          - base: "teBased"
-#            new:  "た"
+- name: "ta5"
+  questions:
+    - front:
+        - line: *taL
+      back:
+        line: *masuL
+
+- name: "nakattaTa5"
+  questions:
+    - front:
+        - line: *nakattaL
+      back:
+        line: *taL
+
+- name: "cross"
+  questions:
+    - front:
+        - line: *naiL
+      back:
+        line: *taL
+    - front:
+        - line: *taL
+      back:
+        line: *nakattaL
+
+- name: "square"
+  questions:
+    - front:
+        - line: *naiL
+      back:
+        line: *taL
+    - front:
+        - line: *taL
+      back:
+        line: *nakattaL
+    - front:
+        - line: *nakattaL
+      back:
+        line: *dictL
 
