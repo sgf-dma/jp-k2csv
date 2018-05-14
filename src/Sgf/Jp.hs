@@ -10,13 +10,10 @@ module Sgf.Jp
     )
   where
 
-import           Data.Char (isAscii, isSpace)
+import           Data.Char (isAscii)
 import qualified Data.Map               as M
 import qualified Data.ByteString.Lazy   as BL
-import qualified Data.Text              as T
 import           Data.Csv
-import qualified Data.Attoparsec.Text   as A
-import           Control.Applicative
 import           Control.Monad
 
 import           Turtle.Shell
@@ -25,6 +22,8 @@ import qualified Data.String as S
 
 import Sgf.Jp.Types
 import Sgf.JPWords.Checks
+import Sgf.Data.Text.Parse (toWords)
+
 
 buildMap :: (a -> Int) -> [a] -> M.Map Int [a]
 buildMap toKey = foldr (\x -> M.insertWith (++) (toKey x) [x]) M.empty
@@ -48,11 +47,4 @@ checkRefs = view . bothKanjiRefAndRel . onlyRefs
     onlyRefs :: M.Map Int [JWord] -> Shell Line
     onlyRefs =
         select . textToLines . S.fromString . reference <=< select <=< select
-
-toWords :: T.Text -> [T.Text]
-toWords = either (const []) id . A.parseOnly
-    (some $ A.takeWhile1 (not . A.isHorizontalSpace) <* A.takeWhile isSpace)
-
-inConjTags :: T.Text -> JConj -> Bool
-inConjTags t = (t `elem`) . toWords . T.pack . conjTags
 

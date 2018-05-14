@@ -10,19 +10,23 @@ module Sgf.Jp.Types
     , defJConj
     , testJConj
     , testJConjVoiced
+    , inConjTags
+    , LNum (..)
+    , inConjLnums
     )
   where
 
+import           Data.Either (rights)
 import qualified Data.Text              as T
 import           Data.Csv
+import qualified Data.Attoparsec.Text   as A
 
 -- | For 'Serialize'.
 import           Control.Monad.State
 
 import qualified Sgf.Data.Text.Table    as T
+import           Sgf.Data.Text.Parse (toWords)
 import           Sgf.Data.Text.OldTable
-
-
 
 data JKana          = JKana
                         { hiragana  :: String
@@ -198,4 +202,20 @@ instance ToRecord JConj where
                             , toField naiFormK
                             , toField conjTags
                             ]
+
+inConjTags :: T.Text -> JConj -> Bool
+inConjTags t = (t `elem`) . toWords . T.pack . conjTags
+
+-- FIXME: Parse 'LNum' during 'FromTable' parsing.
+data LNum       = LNum {lessonNum :: Int, seqNum :: Int}
+  deriving (Show)
+
+lnumP :: A.Parser LNum
+lnumP = LNum <$> (A.string "M" *> A.decimal <* "-") <*> (A.string "W" *> A.decimal)
+
+conjLNums :: JConj -> [LNum]
+conjLNums = rights . map (A.parseOnly lnumP) . toWords . T.pack . conjReference
+
+inConjLnums :: (LNum -> Bool) -> JConj -> Bool
+inConjLnums p = any p . conjLNums
 

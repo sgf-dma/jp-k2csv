@@ -21,20 +21,11 @@ import Control.Applicative
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
 import qualified Data.Attoparsec.Text   as A
-import Data.List.Extra
 
+import Sgf.Data.Text.Parse
 
 witnessM :: Functor m => m (Tagged s b) -> m s -> m b
 witnessM            = flip $ const (fmap untag)
-
-whenNotP ::    A.Parser a -- ^ Predicate.
-            -> A.Parser b -- ^ Parser to run.
-            -> A.Parser b
-whenNotP p x        = do
-    r <- A.eitherP p x
-    case r of
-      Left  _   -> fail "Predicate does _not_ fail in `whenNotP`."
-      Right y   -> return y
 
 -- | Read a word consisting from at least one character until a space or
 -- newline.
