@@ -10,6 +10,7 @@ module Sgf.Data.Text.Parse
 import           Data.Maybe
 import           Data.Char (isSpace)
 import           Data.Function (fix)
+import           Data.Monoid
 import           Data.List.Extra (snoc)
 import qualified Data.Text              as T
 import qualified Data.Attoparsec.Text   as A
@@ -43,6 +44,29 @@ takeTillSep p sepP =
             $   T.append
             <$> whenNotP sepP (T.singleton <$> A.anyChar)
             <*> A.takeWhile p
+            )
+        <*> sepP
+
+takeTillSep2 :: Monoid b => (Char -> b) -> A.Parser b -> A.Parser a -> A.Parser (b, a)
+takeTillSep2 toVal valP sepP =
+    (,)
+        <$> (   fmap mconcat
+            .   many
+            $   mappend
+            <$> whenNotP sepP (toVal <$> A.anyChar)
+            <*> valP
+            )
+        <*> sepP
+
+-- Requirment: 'valP' should _unconditionally_ consume first character.
+takeTillSep2 :: Monoid b => (Char -> b) -> A.Parser b -> A.Parser a -> A.Parser (b, a)
+takeTillSep2 toVal valP sepP =
+    (,)
+        <$> (   fmap mconcat
+            .   many
+            $   mappend
+            <$> whenNotP sepP valP
+            <*> valP
             )
         <*> sepP
 
@@ -112,4 +136,7 @@ wordsWithSuffix sf = either (const []) id . A.parseOnly
             *>  return False
         )
     )
+
+range :: A.Parser (Int, Int)
+range   = (,) <$> (A.decimal <* A.string "-") <*> A.decimal
 
