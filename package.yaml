@@ -27,6 +27,7 @@ dependencies: &deps
   - optparse-applicative
   - text-show
   - random-shuffle
+  - scientific
 
 ghc-options: &ghc-opts
   - -Wall

@@ -1,6 +1,9 @@
 ---
 
 - name: "futsuu5z"
+  filter:
+    from: 20
+    till: 25
   questions:
     - front:
         - line: &def
@@ -95,6 +98,7 @@
         line: *taL
 
 - name: "cross"
+  filter: 25
   questions:
     - front:
         - line: *naiL
