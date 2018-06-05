@@ -86,6 +86,12 @@ writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
 writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj RunSpec{..} = do
     print runFilter
-    let mcj = M.filter (any (inConjLnums (lnumFilter runFilter))) mconj
-    writeVerbFiles ("-" ++ T.unpack runName) (unzip $ generateForms runSpec mcj)
+    writeVerbFiles ("-" ++ T.unpack runName) . unzip
+        . generateForms runSpec
+        . M.filter (applyFilter runFilter)
+        $ mconj
+  where
+    applyFilter :: Maybe LNumFilter -> [JConj] -> Bool
+    applyFilter Nothing     = const True
+    applyFilter (Just p)    = any (inConjLnums (lnumFilter p))
 

@@ -181,14 +181,14 @@ instance FromJSON LNumFilter where
 data RunSpec = RunSpec
                 { runName   :: T.Text
                 , runSpec   :: [QSpec]
-                , runFilter :: LNumFilter
+                , runFilter :: Maybe LNumFilter
                 }
 
 instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
-                        <*> v .:? "filter" .!= LessonRange Nothing Nothing
+                        <*> v .:? "filter" .!= Nothing
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
