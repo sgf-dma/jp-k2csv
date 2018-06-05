@@ -8,12 +8,14 @@ module Sgf.Jp.Types.VForms
     , LineSpec (..)
     , QSpec (..)
     , defQSpec
+    , LNumFilter (..)
     , RunSpec (..)
     )
   where
 
 import           Data.Maybe
 import           Data.Tuple
+import           Data.Scientific
 import           Data.Yaml
 import           Data.Aeson.Types
 import qualified Data.Text              as T
@@ -166,12 +168,27 @@ instance FromJSON QSpec where
                                 <*> v .: "back"
                                 <*> pure (isKanji True)
 
-data RunSpec = RunSpec {runName :: T.Text, runSpec :: [QSpec]}
+data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
+                | Lesson        {lnumEq :: Int}
+  deriving (Show)
+
+instance FromJSON LNumFilter where
+    parseJSON v     =
+            withObject "LNumFilter"
+                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
+        <|> Lesson <$> parseJSON v
+
+data RunSpec = RunSpec
+                { runName   :: T.Text
+                , runSpec   :: [QSpec]
+                , runFilter :: Maybe LNumFilter
+                }
 
 instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
+                        <*> v .:? "filter" .!= Nothing
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)

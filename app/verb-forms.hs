@@ -24,12 +24,10 @@ putStrUtf8 = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
 
 main :: IO ()
 main = do
-    mconj' <- T.decodeFileL "../conjugations.txt" >>= either
+    mconj <- T.decodeFileL "../conjugations.txt" >>= either
         (\e -> error $ "Can't parse JConj table " ++ e)
         (return . buildMap conjNumber)
-    checkMap mconj'
-    --let mconj = M.filter (any (inConjLnums (const True))) mconj'
-    let mconj = M.filter (any (inConjLnums (\LNum{..} -> if lessonNum > 20 then True else False))) mconj'
+    checkMap mconj
 
     t <- decodeFileEither "verb-forms.yaml"
     tv <- case t of

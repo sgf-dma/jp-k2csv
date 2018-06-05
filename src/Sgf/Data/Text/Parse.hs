@@ -4,6 +4,7 @@ module Sgf.Data.Text.Parse
     ( whenNotP
     , toWords
     , wordsWithSuffix
+    , range
     )
   where
 
@@ -112,4 +113,10 @@ wordsWithSuffix sf = either (const []) id . A.parseOnly
             *>  return False
         )
     )
+
+rangeL :: Integral a => A.Parser (a, a)
+rangeL   = (,) <$> (A.decimal <* A.string "-") <*> A.decimal
+
+range :: Integral a => A.Parser (a -> Bool)
+range   = (\(x, y) z -> if z > x && z < y then True else False) <$> rangeL
 

@@ -9,6 +9,7 @@ module Sgf.Jp.VForms
 
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
+import qualified Data.Map               as M
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
 import           System.Random.Shuffle
@@ -64,6 +65,11 @@ generateForms rs    = foldr ((++) . go) []
     go :: [JConj] -> [(T.Text, T.Text)]
     go ys = rs >>= \r -> ys >>= generateForms' r
 
+lnumFilter :: LNumFilter -> LNum -> Bool
+lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
+                                  && maybe True (>= lessonNum) lnumTill
+lnumFilter Lesson{..} LNum{..}  = lnumEq == lessonNum
+
 writeVerbFiles :: String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
     let qfn  = "../wonly-formsQ" ++ fnSuf ++ ".txt"
@@ -77,6 +83,15 @@ writeVerbFiles fnSuf (conjFormsQ, conjFormsA) = do
     T.writeFile qrfn (T.unlines randFormsQ)
     T.writeFile arfn (T.unlines randFormsA)
 
-writeRunSpec :: Foldable t => t [JConj] -> RunSpec -> IO ()
-writeRunSpec mcj RunSpec{..} = writeVerbFiles ("-" ++ T.unpack runName) (unzip $ generateForms runSpec mcj)
+writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
+writeRunSpec mconj RunSpec{..} = do
+    print runFilter
+    writeVerbFiles ("-" ++ T.unpack runName) . unzip
+        . generateForms runSpec
+        . M.filter (applyFilter runFilter)
+        $ mconj
+  where
+    applyFilter :: Maybe LNumFilter -> [JConj] -> Bool
+    applyFilter Nothing     = const True
+    applyFilter (Just p)    = any (inConjLnums (lnumFilter p))
 
