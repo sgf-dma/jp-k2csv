@@ -1,5 +1,6 @@
 .stack-work/
 k2csv.cabal
+vforms/
 
 1.csv
 *.tmp

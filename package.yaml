@@ -28,6 +28,8 @@ dependencies: &deps
   - text-show
   - random-shuffle
   - scientific
+  - filepath
+  - directory
 
 ghc-options: &ghc-opts
   - -Wall
