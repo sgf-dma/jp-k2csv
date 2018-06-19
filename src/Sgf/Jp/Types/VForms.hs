@@ -10,12 +10,13 @@ module Sgf.Jp.Types.VForms
     , defQSpec
     , LNumFilter (..)
     , RunSpec (..)
+    , FileSpec (..)
+    , defFileSpec
     )
   where
 
 import           Data.Maybe
 import           Data.Tuple
-import           Data.Scientific
 import           Data.Yaml
 import           Data.Aeson.Types
 import qualified Data.Text              as T
@@ -178,10 +179,26 @@ instance FromJSON LNumFilter where
                 (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
         <|> Lesson <$> parseJSON v
 
+data FileSpec   = FileSpec
+                    { destDir   :: FilePath
+                    , nfiles    :: Int
+                    }
+defFileSpec :: FileSpec
+defFileSpec = FileSpec
+                { destDir = "./vforms"
+                , nfiles  = 1
+                }
+
+instance FromJSON FileSpec where
+    parseJSON       = withObject "FileSpec" $ \v -> FileSpec
+                        <$> v .:? "dest"    .!= destDir defFileSpec
+                        <*> v .:? "number"  .!= nfiles defFileSpec
+
 data RunSpec = RunSpec
                 { runName   :: T.Text
                 , runSpec   :: [QSpec]
                 , runFilter :: Maybe LNumFilter
+                , files     :: FileSpec
                 }
 
 instance FromJSON RunSpec where
@@ -189,6 +206,7 @@ instance FromJSON RunSpec where
                         <$> v .: "name"
                         <*> v .: "questions"
                         <*> v .:? "filter" .!= Nothing
+                        <*> v .:? "files" .!= defFileSpec
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
