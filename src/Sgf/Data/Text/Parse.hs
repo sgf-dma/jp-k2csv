@@ -14,6 +14,7 @@ import           Data.Function (fix)
 import           Data.List.Extra (snoc)
 import qualified Data.Text              as T
 import qualified Data.Attoparsec.Text   as A
+import           Data.Functor
 import           Control.Applicative
 
 
@@ -55,8 +56,8 @@ takeTillStr :: (Char -> Bool) -> A.Parser T.Text -> A.Parser T.Text
 takeTillStr p strP =
     fmap T.concat
         .   snoc
-        <$> (   many
-            $   T.append
+        <$> many
+            (   T.append
             <$> whenNotP strP (T.singleton <$> A.anyChar)
             <*> A.takeWhile p
             )
@@ -107,10 +108,10 @@ wordsWithSuffix sf = either (const []) id . A.parseOnly
         )
         (   A.string (sf `T.append` wordSep)
             *>  many (A.string wordEnd)
-            *>  return True
+            $>  True
         <|> A.string sf
-            *>  (A.string wordEnd <|> A.endOfInput *> pure T.empty)
-            *>  return False
+            *>  (A.string wordEnd <|> A.endOfInput $> T.empty)
+            $>  False
         )
     )
 
@@ -118,5 +119,5 @@ rangeL :: Integral a => A.Parser (a, a)
 rangeL   = (,) <$> (A.decimal <* A.string "-") <*> A.decimal
 
 range :: Integral a => A.Parser (a -> Bool)
-range   = (\(x, y) z -> if z > x && z < y then True else False) <$> rangeL
+range   = (\(x, y) z -> z > x && z < y) <$> rangeL
 

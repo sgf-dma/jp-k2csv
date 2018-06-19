@@ -1,6 +1,4 @@
 {-# LANGUAGE OverloadedStrings      #-}
-{-# LANGUAGE RecordWildCards        #-}
-{-# LANGUAGE TupleSections          #-}
 
 module Main where
 
@@ -33,6 +31,6 @@ main = do
     tv <- case t of
       Right tv  -> BL.putStr (encodePretty (tv :: Value)) >> return tv
       Left e    -> putStrLn (prettyPrintParseException e) >> error "Huh.."
-    let cf = either (\e -> error e) id (parseEither parseJSON tv)
+    let cf = either error id (parseEither parseJSON tv)
     mapM_ (writeRunSpec mconj) (cf :: [RunSpec])
 

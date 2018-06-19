@@ -127,7 +127,7 @@ baseForms   =   [ ("teBased", teBased)
                 , ("masuBased", masuBased)
                 ]
 
-data VFormSpec      = VFormSpec { stem :: JConj -> VForm2 }
+newtype VFormSpec = VFormSpec { stem :: JConj -> VForm2 }
 
 instance FromJSON VFormSpec where
     parseJSON = withObject "vform" $ \v -> explicitParseField go v "vform"
@@ -140,7 +140,7 @@ instance FromJSON VFormSpec where
             VFormSpec . f <$> v .: "new"
 
 -- Forms, which should be output on a single line.
-data LineSpec       = LineSpec {lineSpec :: [VFormSpec]}
+newtype LineSpec = LineSpec {lineSpec :: [VFormSpec]}
 
 instance FromJSON LineSpec where
     parseJSON   = withObject "line" $ \v -> LineSpec <$> v .: "line"

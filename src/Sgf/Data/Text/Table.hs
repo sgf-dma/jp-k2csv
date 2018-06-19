@@ -73,9 +73,8 @@ tablePC'   = do
         <$> some (row (hs `asTypeOf` [keyType]))
 
 tablePCs :: FromTable a => A.Parser (TableParser a)
-tablePCs    = do
-    ets <- some (tablePC' <* many emptyLine)
-    return (parseTable . table ([1..] :: [Int]) $ ets)
+tablePCs    = parseTable . table ([1..] :: [Int])
+                <$> some (tablePC' <* many emptyLine)
 
 type TableKey   = T.Text
 
@@ -92,7 +91,7 @@ instance TableFormat Table where
         Nothing  -> case cast ks of
           Just tks -> TableText . M.fromList . zip tks
           Nothing  -> error $ "tableC: key type unsupported: " ++ show (typeOf ks)
-    unlinesRow (Cell x)         (Cell y)        = Cell $ (trimWhitespaceT x <> " " <> trimWhitespaceT y)
+    unlinesRow (Cell x)         (Cell y)        = Cell $ trimWhitespaceT x <> " " <> trimWhitespaceT y
     unlinesRow (TableInt x)     (TableInt y)    = TableInt  $ M.unionWith unlinesRow x y
     unlinesRow (TableText x)    (TableText y)   = TableText $ M.unionWith unlinesRow x y
     unlinesRow _                _               = error "Can't join maps of different type."
@@ -139,7 +138,7 @@ annotateError v     = either (Left . annErr) Right v
 
 -- | Map a function over error message.
 mapError :: Typeable a => (String -> String) -> TableParser a -> TableParser a
-mapError f v        = either (Left . f) Right v
+mapError f          = either (Left . f) Right
 
 -- | Parse a 'Cell'.
 withCell :: Typeable a => String -> (T.Text -> TableParser a)
@@ -174,7 +173,7 @@ instance FromTable T.Text where
 
 instance FromTable a => FromTable [a] where
     parseTable      = withTableInt "[a]" $
-                        foldrM (\x z -> fmap (: z) $ parseTable x) []
+                        foldrM (\x z -> (: z) <$> parseTable x) []
 
 (.:) :: FromTable a => M.Map T.Text Table -> TableKey -> TableParser a
 m .: k              = lookupP parseTable m k
@@ -186,11 +185,11 @@ lookupP p o k       = case M.lookup k o of
     Nothing -> Left $ "No such key: '" ++ show k ++ "'."
 
 decodeFileL :: (Monoid a, FromTable a) => FilePath -> IO (Either String a)
-decodeFileL f       = decodeFile' f >>= return . fmap mconcat
+decodeFileL f       = fmap mconcat <$> decodeFile' f
 
 decodeFile :: FromTable a => FilePath -> IO (Either String a)
-decodeFile f      = T.readFile f >>= return . join . A.parseOnly tablePC
+decodeFile f      = join . A.parseOnly tablePC <$> T.readFile f
 
 decodeFile' :: FromTable a => FilePath -> IO (Either String a)
-decodeFile' f      = T.readFile f >>= return . join . A.parseOnly tablePCs
+decodeFile' f      = join . A.parseOnly tablePCs <$> T.readFile f
 

@@ -26,7 +26,7 @@ writingToLine = T.concat . L.intersperse ", "
 
 genSpec' :: VFormSpec -> JConj -> VForm2
 genSpec' VFormSpec {..} x =
-    let v@(VForm2 {..}) = stem x
+    let v@VForm2 {..} = stem x
     in  v
             { kanaForm2 =
                 if null kanaForm2 then []

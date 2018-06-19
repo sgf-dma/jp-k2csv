@@ -32,7 +32,7 @@ witnessM            = flip $ const (fmap untag)
 wordWspace :: A.Parser T.Text
 wordWspace          = (T.cons
                         <$> A.satisfy (/= '\n')
-                        <*> A.takeWhile (\x -> all (/= x) [' ', '\n'])) A.<?> "word"
+                        <*> A.takeWhile (\x -> x `notElem` [' ', '\n'])) A.<?> "word"
 
 takeLine :: A.Parser T.Text
 takeLine            = A.takeTill A.isEndOfLine <* (A.endOfLine <|> A.endOfInput)
@@ -105,7 +105,7 @@ rawTable ks         = table ([1..] :: [Int])
 
 decodeFileRaw :: (Typeable a, Ord a, TableFormat t) =>
                 [a] -> FilePath -> IO (Either String t)
-decodeFileRaw ks f  = T.readFile f >>= return . A.parseOnly (rawTables ks)
+decodeFileRaw ks f  = A.parseOnly (rawTables ks) <$> T.readFile f
 
 rawTables :: (Typeable a, Ord a, TableFormat t) => [a] -> A.Parser t
 rawTables ks        = table ([1..] :: [Int])
