@@ -70,17 +70,19 @@ rowLine ks         =
     in  v
 
 --------
-sepCell :: Char -> Char -> A.Parser T.Text
-sepCell sep cell    = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
+gSepRow :: A.Parser a -> Char -> A.Parser [a]
+gSepRow cellP sep   = A.char sep *> some (cellP <* A.char sep) <* takeLine
 
--- | Separator row.
+
+-- | Regular separator row.
 sepRow :: A.Parser [T.Text]
-sepRow              =
-    A.string "+" *> some (sepCell '+' '-') <* takeLine A.<?> "sepRow"
+sepRow              = gSepRow (A.takeWhile1 (== '-')) '+' A.<?> "sepRow"
+
 
 headSepRow :: A.Parser [T.Text]
 headSepRow          =
-    A.string "+" *> some (sepCell '+' '=') <* takeLine A.<?> "headSepRow"
+    gSepRow (A.option "" ":" *> A.takeWhile1 (== '=') <* A.option "" ":") '+'
+    A.<?> "headSepRow"
 -------
 
 -- | Multi-line table row. Newline at the end is /required/.
