@@ -17,6 +17,7 @@ module Sgf.Data.Text.Table.Parse
 
 import Data.Typeable
 import Data.Tagged
+import Data.Functor
 import Control.Applicative
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
@@ -40,6 +41,31 @@ takeLine            = A.takeTill A.isEndOfLine <* (A.endOfLine <|> A.endOfInput)
 emptyLine :: A.Parser T.Text
 emptyLine           =
     A.takeWhile (`elem` [' ', '\t']) <* A.endOfLine A.<?> "emptyLine"
+
+-- | Align marker on left side of a cell.
+data SideLeft   = SideLAlign
+                | SideLNoAlign
+  deriving (Show)
+
+-- | Align marker on right side of a cell.
+data SideRight  = SideRAlign
+                | SideRNoAlign
+  deriving (Show)
+
+-- | Cell alignment.
+data CellAlign      = CellRight
+                    | CellLeft
+                    | CellCenter
+                    | CellNoAlign
+  deriving (Show)
+
+-- Choose cell align depending on align marker along left and right sides of a
+-- cell.
+chooseAlign :: SideLeft -> SideRight -> CellAlign
+chooseAlign SideLAlign    SideRAlign   = CellCenter
+chooseAlign SideLAlign    SideRNoAlign = CellLeft
+chooseAlign SideLNoAlign  SideRAlign   = CellRight
+chooseAlign SideLNoAlign  SideRNoAlign = CellNoAlign
 
 class TableFormat a where
     emptyTable  :: a
@@ -69,19 +95,28 @@ rowLine ks         =
             A.<?> "rowLine"
     in  v
 
---------
-sepCell :: Char -> Char -> A.Parser T.Text
-sepCell sep cell    = A.takeWhile1 (== cell) <* A.string (T.singleton sep)
+-- | Generic table separator row.
+gSepRow :: A.Parser a -> Char -> A.Parser [a]
+gSepRow cellP sep   = A.char sep *> some (cellP <* A.char sep) <* takeLine
 
--- | Separator row.
+-- | Regular separator row.
 sepRow :: A.Parser [T.Text]
-sepRow              =
-    A.string "+" *> some (sepCell '+' '-') <* takeLine A.<?> "sepRow"
+sepRow  = gSepRow (A.takeWhile1 (== '-')) '+' A.<?> "sepRow"
 
-headSepRow :: A.Parser [T.Text]
-headSepRow          =
-    A.string "+" *> some (sepCell '+' '=') <* takeLine A.<?> "headSepRow"
--------
+headSepRow' :: A.Parser [T.Text]
+headSepRow'          =
+    gSepRow (A.option "" ":" *> A.takeWhile1 (== '=') <* A.option "" ":") '+'
+    A.<?> "headSepRow"
+
+headSepRow :: A.Parser [CellAlign]
+headSepRow  =
+    gSepRow
+        (   chooseAlign
+            <$> (A.option SideLNoAlign (A.string ":" $> SideLAlign) <* A.takeWhile1 (== '='))
+            <*>  A.option SideRNoAlign (A.string ":" $> SideRAlign)
+        )
+        '+'
+    A.<?> "headSepRow"
 
 -- | Multi-line table row. Newline at the end is /required/.
 -- FIXME: Make it not required. May be replace `endOfLine` with some parser
@@ -96,6 +131,9 @@ headerRow :: TableFormat t => A.Parser t
 headerRow           =
        sepRow
     *> (foldr1 unlinesRow <$> some (rowLine ([1..] :: [Int])))
+    -- FIXME: Validate, that header separators line has correct length. The
+    -- number of`CellAlign` elements in a list is the number of correctly
+    -- parsed cells according to header separator line.
     <*  headSepRow
     A.<?> "headerRow"
 
