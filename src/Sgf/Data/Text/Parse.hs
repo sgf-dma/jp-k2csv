@@ -29,7 +29,9 @@ whenNotP p x        = do
 
 toWords :: T.Text -> [T.Text]
 toWords = either (const []) id . A.parseOnly
-    (some $ A.takeWhile1 (not . A.isHorizontalSpace) <* A.takeWhile isSpace)
+    (   A.takeWhile isSpace
+    *>  some (  A.takeWhile1 (not . A.isHorizontalSpace)
+             <* A.takeWhile isSpace))
 
 -- Take input untill separator parser succeeds. Predicate is used to identify
 -- character at which to try to match separator parser. Result of separator
