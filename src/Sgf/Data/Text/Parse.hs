@@ -5,6 +5,8 @@ module Sgf.Data.Text.Parse
     , toWords
     , wordsWithSuffix
     , range
+    , tHeadMay
+    , tLastMay
     )
   where
 
@@ -90,6 +92,10 @@ wordSep = ","
 tHeadMay :: T.Text -> Maybe Char
 tHeadMay t | T.null t  = Nothing
            | otherwise = Just (T.head t)
+
+tLastMay :: T.Text -> Maybe Char
+tLastMay t | T.null t  = Nothing
+           | otherwise = Just (T.last t)
 
 -- | Split to words by building separator from supplied word suffix and word
 -- delimiter. The last word is the one having only suffix without word
