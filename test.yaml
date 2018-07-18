@@ -3,8 +3,8 @@
   files: &files
     dest: "./vforms/test"
   filter: &filter
-    from: 20
-    till: 27
+    from: 24
+    till: 24
   questions:
     - front:
         - line:
@@ -15,4 +15,4 @@
         line: &potentialL
         - vform: &potential
             base: "potentialBased"
-            new:  "る"
+            new:  "ない"

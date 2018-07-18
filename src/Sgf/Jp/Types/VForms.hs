@@ -53,6 +53,7 @@ potentialSyllables  =
     , ('る', 'れ')
     ]
 
+-- | Map of v3 verb dictionary form to potential dictionary form.
 v3PotentialDict :: [(T.Text, T.Text)]
 v3PotentialDict = [("する", "できる"), ("くる", "こられる"), ("来る", "来られる")]
 
@@ -166,9 +167,17 @@ potentialBased suf w
     genV2 :: T.Text -> Writing
     genV2       = map (<> "られ" <> suf) . wordsWithSuffix "る"
     genV3 :: T.Text -> Writing
-    genV3 dw    = do
+    genV3 dws   = do
+        -- TODO: Replace this with row substitution function. I already have
+        -- row for できる , so if i construct correct stem, i may use it. But
+        -- for 来られる there is no row.. should i use 'genV2' then?  Or
+        -- should i use row substitution instead of entire this function:
+        -- replace current row with another one (generated) and use regular
+        -- conjugation base function to construct the final form?
+        dw <- wordsWithSuffix "" dws
         (old, new) <- filter ((`T.isSuffixOf` dw) . fst) v3PotentialDict
-        (<> new) <$> maybeToList (old `T.stripSuffix` dw)
+        pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
+        map (<> suf) (wordsWithSuffix "る" pw)
     go :: T.Text -> Maybe T.Text
     go t    = do
         let (ts, mc) = (T.dropEnd 1 t, tLastMay t)
