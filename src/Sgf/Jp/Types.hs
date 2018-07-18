@@ -121,7 +121,7 @@ data JConj          = JConj
                         , naiForm       :: String
                         , naiFormK      :: String
                         , conjTranslate :: String
-                        , conjTags      :: String
+                        , conjTags      :: [String]
                         }
   deriving (Show, Read)
 
@@ -138,7 +138,7 @@ defJConj = JConj
     , naiForm       = ""
     , naiFormK      = ""
     , conjTranslate = ""
-    , conjTags      = ""
+    , conjTags      = []
     }
 testJConj :: JConj
 testJConj = JConj
@@ -153,7 +153,7 @@ testJConj = JConj
     , naiForm       = "Nai-form-ない"
     , naiFormK      = "Nai-kanji-form-ない"
     , conjTranslate = "Translate"
-    , conjTags      = "test"
+    , conjTags      = ["test"]
     }
 
 testJConjVoiced :: JConj
@@ -169,7 +169,7 @@ testJConjVoiced = JConj
     , naiForm       = "Nai-form-ない"
     , naiFormK      = "Nai-kanji-form-ない"
     , conjTranslate = "Translate"
-    , conjTags      = "test"
+    , conjTags      = ["test"]
     }
 
 instance T.FromTable JConj where
@@ -186,7 +186,7 @@ instance T.FromTable JConj where
             <*> (T.unpack <$> m T..: "ない-form")
             <*> (T.unpack <$> m T..: "ない kanji")
             <*> (T.unpack <$> m T..: "Translation")
-            <*> (T.unpack <$> m T..: "Tags")
+            <*> T.lookupP (T.withCell "Tags" (pure . map T.unpack . toWords)) m "Tags"
 
 instance ToRecord JConj where
     toRecord JConj {..} = record
@@ -200,11 +200,11 @@ instance ToRecord JConj where
                             , toField teFormK
                             , toField naiForm
                             , toField naiFormK
-                            , toField conjTags
+                            , toField (unwords conjTags)
                             ]
 
 inConjTags :: T.Text -> JConj -> Bool
-inConjTags t = (t `elem`) . toWords . T.pack . conjTags
+inConjTags t = (t `elem`) . map T.pack . conjTags
 
 -- FIXME: Parse 'LNum' during 'FromTable' parsing.
 data LNum       = LNum {lessonNum :: Int, seqNum :: Int}

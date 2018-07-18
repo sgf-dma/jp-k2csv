@@ -3,7 +3,6 @@
 module Main where
 
 import           Data.Monoid
-import qualified Data.Map               as M
 import           Data.Yaml
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as T
@@ -44,13 +43,13 @@ main = join . A.customExecParser (A.prefs A.showHelpOnError) $
               )
 
 work_ :: FilePath -> IO ()
-work_ cf = do
+work_ cfp = do
     mconj <- T.decodeFileL "../conjugations.txt" >>= either
         (\e -> error $ "Can't parse JConj table " ++ e)
         (return . buildMap conjNumber)
     checkMap mconj
 
-    t <- decodeFileEither cf
+    t <- decodeFileEither cfp
     tv <- case t of
       Right tv  -> BL.putStr (encodePretty (tv :: Value)) >> return tv
       Left e    -> putStrLn (prettyPrintParseException e) >> error "Huh.."

@@ -5,12 +5,14 @@
 module Sgf.Data.Text.Table
     ( FromTable (..)
     , (.:)
+    , lookupP
 
     , cellDecimal
     , trimWhitespace
     , trimWhitespaceT
 
     , Table
+    , TableParser
     , withCell
     , withTableInt
     , withTableText

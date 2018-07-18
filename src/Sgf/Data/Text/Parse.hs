@@ -5,6 +5,8 @@ module Sgf.Data.Text.Parse
     , toWords
     , wordsWithSuffix
     , range
+    , tHeadMay
+    , tLastMay
     )
   where
 
@@ -29,7 +31,9 @@ whenNotP p x        = do
 
 toWords :: T.Text -> [T.Text]
 toWords = either (const []) id . A.parseOnly
-    (some $ A.takeWhile1 (not . A.isHorizontalSpace) <* A.takeWhile isSpace)
+    (   A.takeWhile isSpace
+    *>  some (  A.takeWhile1 (not . A.isHorizontalSpace)
+             <* A.takeWhile isSpace))
 
 -- Take input untill separator parser succeeds. Predicate is used to identify
 -- character at which to try to match separator parser. Result of separator
@@ -88,6 +92,10 @@ wordSep = ","
 tHeadMay :: T.Text -> Maybe Char
 tHeadMay t | T.null t  = Nothing
            | otherwise = Just (T.head t)
+
+tLastMay :: T.Text -> Maybe Char
+tLastMay t | T.null t  = Nothing
+           | otherwise = Just (T.last t)
 
 -- | Split to words by building separator from supplied word suffix and word
 -- delimiter. The last word is the one having only suffix without word
