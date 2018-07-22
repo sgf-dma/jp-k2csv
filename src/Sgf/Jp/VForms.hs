@@ -7,6 +7,7 @@ module Sgf.Jp.VForms
     )
   where
 
+import Data.Maybe
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
@@ -16,6 +17,7 @@ import           System.Random.Shuffle
 import           System.FilePath
 import           System.Directory
 import           Control.Monad
+import           Control.Monad.Reader
 
 import Sgf.Jp.Types
 import Sgf.Jp.Types.VForms
@@ -24,29 +26,40 @@ import Sgf.Jp.Types.VForms
 writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . L.intersperse ", "
 
-genSpec' :: VFormSpec -> JConj -> VForm2
-genSpec' VFormSpec {..} x =
-    let v@VForm2 {..} = stem x
-    in  v
-            { kanaForm2 =
-                if null kanaForm2 then []
-                    else kanaForm2
-            , kanjiForm2 =
-                if null kanjiForm2 then []
-                    else kanjiForm2
-            }
+genSpec' :: VFormSpec -> ReaderT JConj Maybe VForm2
+genSpec' VFormSpec{..} = ask >>= go
+  where
+    go :: JConj -> ReaderT JConj Maybe VForm2
+    go jc
+      | all (flip inConjTags jc) vformFilter = do
+          let v@VForm2 {..} = stem jc
+          return $ v
+              { kanaForm2 =
+                  if null kanaForm2 then []
+                      else kanaForm2
+              , kanjiForm2 =
+                  if null kanjiForm2 then []
+                      else kanjiForm2
+              }
+      | otherwise = mzero
 
-genLine :: LineSpec -> (VForm2 -> Writing) -> JConj -> T.Text
+-- FIXME: Reorder args.
+genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT JConj Maybe T.Text
 genLine (LineSpec vsp) f    = do
-    vs <- mapM genSpec' vsp
-    jn <- conjNumber
-    return . T.concat . L.intersperse "; "
-        . filter (not . T.null)
-        . flip snoc (T.pack . show $ jn) . map (writingToLine . f)
-        $ vs
+    jn <- asks conjNumber
+    vs <- mapReaderT (\vs -> if null vs then mzero else pure vs) (lift vsp >>= go)
+    return . T.concat . L.intersperse "; " . flip snoc (T.pack . show $ jn) $ vs
+  where
+    go :: VFormSpec -> ReaderT JConj [] T.Text
+    go vs = do
+      vf <- mapReaderT maybeToList (genSpec' vs)
+      let vt = writingToLine . f $ vf
+      if T.null vt then mzero else pure vt
 
-genLine' :: [LineSpec] -> (VForm2 -> Writing) -> JConj -> [T.Text]
-genLine' lsp f x  = map (\l -> genLine l f x) lsp
+genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT JConj [] T.Text
+genLine' lsp f = do
+    l <- lift lsp
+    mapReaderT maybeToList (genLine l f)
 
 zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
 zipM mxs mys    = do
@@ -55,12 +68,13 @@ zipM mxs mys    = do
     return (zip xs ys)
 
 generateForms' :: QSpec -> JConj -> [(T.Text, T.Text)]
-generateForms' QSpec{..} = zipM questions (sequence (repeat answer))
+generateForms' QSpec{..} = zipM (runReaderT questions) (runReaderT answer)
   where
-    questions :: JConj -> [T.Text]
-    questions   = questionWriting >>= genLine' questionSpec
-    answer :: JConj -> T.Text
-    answer      = answerWriting >>= genLine answerSpec
+    questions :: ReaderT JConj [] T.Text
+    questions   = asks questionWriting >>= genLine' questionSpec
+    -- There is only answer, i just repeat to match the number of questions.
+    answer :: ReaderT JConj [] T.Text
+    answer      = mapReaderT (maybe [] repeat) (asks answerWriting >>= genLine answerSpec)
 
 generateForms :: Foldable t => [QSpec] -> t [JConj] -> [(T.Text, T.Text)]
 generateForms rs    = foldr ((++) . go) []
@@ -90,8 +104,9 @@ writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
     arfn n = destDir </> "random-" ++ runName ++ "-" ++ show n ++ "-A" ++ ".txt"
 
 writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
-writeRunSpec mconj RunSpec{..} = do
+writeRunSpec mconj rs@RunSpec{..} = do
     print runFilter
+    print rs
     writeVerbFiles files (T.unpack runName) . unzip
         . generateForms runSpec
         . M.filter (applyFilter runFilter)

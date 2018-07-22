@@ -12,6 +12,8 @@ module Sgf.Jp.Types.VForms
     , RunSpec (..)
     , FileSpec (..)
     , defFileSpec
+
+    , dictBased
     )
   where
 
@@ -157,7 +159,8 @@ potentialBased suf w
             , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | otherwise = error "Unknown verb conjugation."
+  -- FIXME: Just skip this vform. But his requires result of type 'Maybe'.
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
   where
     kanjiStem :: JConj -> String
     kanjiStem y | null (dictFormK w) = dictForm y
@@ -192,7 +195,19 @@ baseForms   =   [ ("teBased", teBased)
                 , ("potentialBased", potentialBased)
                 ]
 
-newtype VFormSpec = VFormSpec { stem :: JConj -> VForm2 }
+data VFormSpec = VFormSpec
+                    { vformBase :: T.Text
+                    , stem :: JConj -> VForm2
+                    , vformFilter :: [T.Text]
+                    }
+
+instance Show VFormSpec where
+    showsPrec d vs = showParen (d > app_prec)
+        $ showString "VFormSpec {"
+        . showString "vformBase = " . showsPrec (d + 1) (vformBase vs)
+        . showString ", vformFilter = " . showsPrec (d + 1) (vformFilter vs)
+        . showString "}"
+      where app_prec = 10
 
 instance FromJSON VFormSpec where
     parseJSON = withObject "vform" $ \v -> explicitParseField go v "vform"
@@ -200,12 +215,18 @@ instance FromJSON VFormSpec where
         go :: Value -> Parser VFormSpec
         go = withObject "Object" $ \v -> do
             r <- v .: "base"
+            -- FIXME: Because now i store 'vformBase' name in 'VFormSpec' i
+            -- may move base function lookup out of this module.
             f <- maybe (fail "Can't find base function") return
                     $ lookup r baseForms
-            VFormSpec . f <$> v .: "new"
+            VFormSpec
+              <$> pure r
+              <*> (f <$> v .: "new")
+              <*> (v .:? "filter" .!= [])
 
 -- Forms, which should be output on a single line.
 newtype LineSpec = LineSpec {lineSpec :: [VFormSpec]}
+  deriving (Show)
 
 instance FromJSON LineSpec where
     parseJSON   = withObject "line" $ \v -> LineSpec <$> v .: "line"
@@ -219,6 +240,14 @@ data QSpec        = QSpec
                         , answerSpec    :: LineSpec
                         , answerWriting :: JConj -> VForm2 -> Writing
                         }
+
+instance Show QSpec where
+    showsPrec d qs = showParen (d > app_prec)
+        $ showString "QSpec {"
+        . showString "questionSpec = " . showsPrec (d + 1) (questionSpec qs)
+        . showString ", answerSpec = " . showsPrec (d + 1) (answerSpec qs)
+        . showString "}"
+      where app_prec = 10
 defQSpec :: QSpec
 defQSpec      = QSpec
                         { questionSpec      = []
@@ -248,6 +277,8 @@ data FileSpec   = FileSpec
                     { destDir   :: FilePath
                     , nfiles    :: Int
                     }
+  deriving (Show)
+
 defFileSpec :: FileSpec
 defFileSpec = FileSpec
                 { destDir = "./vforms"
@@ -265,6 +296,7 @@ data RunSpec = RunSpec
                 , runFilter :: Maybe LNumFilter
                 , files     :: FileSpec
                 }
+  deriving (Show)
 
 instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
