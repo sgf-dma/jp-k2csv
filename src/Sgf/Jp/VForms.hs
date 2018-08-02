@@ -31,19 +31,9 @@ genSpec' VFormSpec{..} = ask >>= go
   where
     go :: JConj -> ReaderT JConj Maybe VForm2
     go jc
-      | all (flip inConjTags jc) vformFilter = do
-          let v@VForm2 {..} = stem jc
-          return $ v
-              { kanaForm2 =
-                  if null kanaForm2 then []
-                      else kanaForm2
-              , kanjiForm2 =
-                  if null kanjiForm2 then []
-                      else kanjiForm2
-              }
+      | all (flip inConjTags jc) vformFilter = return (stem jc)
       | otherwise = mzero
 
--- FIXME: Reorder args.
 genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT JConj Maybe T.Text
 genLine (LineSpec vsp) f    = do
     jn <- asks conjNumber
@@ -57,9 +47,7 @@ genLine (LineSpec vsp) f    = do
       if T.null vt then mzero else pure vt
 
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT JConj [] T.Text
-genLine' lsp f = do
-    l <- lift lsp
-    mapReaderT maybeToList (genLine l f)
+genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f
 
 zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
 zipM mxs mys    = do
