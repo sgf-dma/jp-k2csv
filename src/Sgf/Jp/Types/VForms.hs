@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ExistentialQuantification          #-}
 
 module Sgf.Jp.Types.VForms
     ( Writing
@@ -23,6 +25,7 @@ import           Data.Tuple
 import           Data.Yaml
 import           Data.Aeson.Types
 import qualified Data.Text              as T
+import qualified Data.Map               as M
 import           Control.Applicative
 import           Control.Arrow
 
@@ -195,10 +198,19 @@ baseForms   =   [ ("teBased", teBased)
                 , ("potentialBased", potentialBased)
                 ]
 
-data VFormSpec = VFormSpec
+rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
+rowModFuncs   = [ ("id", const (Just <$> id))
+                , ("transPair", lookupTransPair)
+                ]
+
+lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
+lookupTransPair xs v = conjTransRef v >>= flip M.lookup xs >>= listToMaybe
+
+data VFormSpec = forall m. Foldable m => VFormSpec
                     { vformBase :: T.Text
                     , stem :: JConj -> VForm2
                     , vformFilter :: [T.Text]
+                    , rowMod :: m [JConj] -> JConj -> Maybe JConj
                     }
 
 instance Show VFormSpec where
@@ -214,15 +226,20 @@ instance FromJSON VFormSpec where
       where
         go :: Value -> Parser VFormSpec
         go = withObject "Object" $ \v -> do
-            r <- v .: "base"
+            b <- v .: "base"
             -- FIXME: Because now i store 'vformBase' name in 'VFormSpec' i
             -- may move base function lookup out of this module.
             f <- maybe (fail "Can't find base function") return
-                    $ lookup r baseForms
+                    $ lookup b baseForms
+            -- FIXME: Better default handling.
+            r <- v .:? "rowMod" .!= "id"
+            g <- maybe (fail "Can't find row modification function") return
+                    $ lookup r rowModFuncs
             VFormSpec
-              <$> pure r
+              <$> pure b
               <*> (f <$> v .: "new")
               <*> (v .:? "filter" .!= [])
+              <*> pure g
 
 -- Forms, which should be output on a single line.
 newtype LineSpec = LineSpec {lineSpec :: [VFormSpec]}

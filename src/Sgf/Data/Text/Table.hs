@@ -5,6 +5,7 @@
 module Sgf.Data.Text.Table
     ( FromTable (..)
     , (.:)
+    , (.:?)
     , lookupP
 
     , cellDecimal
@@ -177,14 +178,24 @@ instance FromTable a => FromTable [a] where
     parseTable      = withTableInt "[a]" $
                         foldrM (\x z -> (: z) <$> parseTable x) []
 
+instance FromTable a => FromTable (Maybe a) where
+    parseTable t    = Just <$> parseTable t <|> pure Nothing
+
 (.:) :: FromTable a => M.Map T.Text Table -> TableKey -> TableParser a
 m .: k              = lookupP parseTable m k
+
+(.:?) :: FromTable a => M.Map T.Text Table -> TableKey -> TableParser (Maybe a)
+m .:? k             = lookupP' parseTable m k
 
 lookupP :: (Table -> TableParser a)
             -> M.Map T.Text Table -> T.Text -> TableParser a
 lookupP p o k       = case M.lookup k o of
     Just x  -> p x
     Nothing -> Left $ "No such key: '" ++ show k ++ "'."
+
+lookupP' :: (Table -> TableParser a)
+            -> M.Map T.Text Table -> T.Text -> TableParser (Maybe a)
+lookupP' p o k       = sequence $ p <$> M.lookup k o
 
 decodeFileL :: (Monoid a, FromTable a) => FilePath -> IO (Either String a)
 decodeFileL f       = fmap mconcat <$> decodeFile' f

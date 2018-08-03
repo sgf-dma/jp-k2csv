@@ -111,6 +111,7 @@ instance ToRecord JWord where
 
 data JConj          = JConj
                         { conjNumber    :: Int
+                        , conjTransRef  :: Maybe Int
                         , conjReference :: String
                         , dictForm      :: String
                         , dictFormK     :: String
@@ -128,6 +129,7 @@ data JConj          = JConj
 defJConj :: JConj
 defJConj = JConj
     { conjNumber    = 0
+    , conjTransRef  = Nothing
     , conjReference = ""
     , dictForm      = ""
     , dictFormK     = ""
@@ -143,6 +145,7 @@ defJConj = JConj
 testJConj :: JConj
 testJConj = JConj
     { conjNumber    = 1111
+    , conjTransRef  = Just 2222
     , conjReference = "M111-W23    M222-W1 "
     , dictForm      = "Dict-form"
     , dictFormK     = "Dict-kanji-form"
@@ -159,6 +162,7 @@ testJConj = JConj
 testJConjVoiced :: JConj
 testJConjVoiced = JConj
     { conjNumber    = 1111
+    , conjTransRef  = Just 2222
     , conjReference = "M111-W23    M222-W1 "
     , dictForm      = "Dict-form"
     , dictFormK     = "Dict-kanji-form"
@@ -176,6 +180,7 @@ instance T.FromTable JConj where
     parseTable      = T.withTableText "JConj" $ \m ->
         JConj
             <$> m T..: "Num"
+            <*> m T..: "Trans pair"
             <*> (T.unpack <$> m T..: "Reference")
             <*> (T.unpack <$> m T..: "Dict form")
             <*> (T.unpack <$> m T..: "Dict kanji")

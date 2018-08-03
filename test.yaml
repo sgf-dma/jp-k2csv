@@ -11,18 +11,13 @@
           - vform:
               filter:
                 - "intransitive"
-                - "v1"
               base: "dictBased"
               new:  ""
-        - line:
-          - vform:
-              filter:
-                - "transitive"
-                - "v2"
-              base: "teBased"
-              new:  "た"
       back:
         line: &potentialL
         - vform: &potential
-            base: "potentialBased"
-            new:  "ない"
+            rowMod: "transPair"
+            filter:
+              - "v2"
+            base: "teBased"
+            new:  "た"
