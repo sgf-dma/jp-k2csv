@@ -18,6 +18,7 @@ import           System.FilePath
 import           System.Directory
 import           Control.Monad
 import           Control.Monad.Reader
+import           Control.Monad.State
 
 import Sgf.Jp.Types
 import Sgf.Jp.Types.VForms
@@ -26,25 +27,48 @@ import Sgf.Jp.Types.VForms
 writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . L.intersperse ", "
 
-genSpec' :: VFormSpec -> ReaderT JConj Maybe VForm2
-genSpec' VFormSpec{..} = ask >>= go
+genSpec' :: VFormSpec -> StateT JConj Maybe VForm2
+genSpec' VFormSpec{..} = get >>= go
   where
-    go :: JConj -> ReaderT JConj Maybe VForm2
+    go :: JConj -> StateT JConj Maybe VForm2
     go jc
       | all (flip inConjTags jc) vformFilter = return (stem jc)
       | otherwise = mzero
 
-genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT JConj Maybe T.Text
-genLine (LineSpec vsp) f    = do
-    jn <- asks conjNumber
-    vs <- mapReaderT (\vs -> if null vs then mzero else pure vs) (lift vsp >>= go)
-    return . T.concat . L.intersperse "; " . flip snoc (T.pack . show $ jn) $ vs
+-- | 'groupBy' version using second element of a pair ('State') to group list
+-- elements.
+groupByState :: Eq b => [(a, b)] -> [([a], b)]
+groupByState []       = []
+groupByState (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
   where
-    go :: VFormSpec -> ReaderT JConj [] T.Text
+    -- | Check /next/ element state against /current/ element state and add
+    -- /next/ element into corresponding result group.
+    go :: Eq b => (a, b) -> ((a, b) -> [([a], b)]) -> (a, b) -> [([a], b)]
+    go w@(_, s) zf (xN, sN)
+      | s == sN     = case zf w of
+                        []              -> error "Impossible condition in `groupByState`."
+                        ((ys, _) : zs)  -> (xN : ys, sN) : zs
+      | otherwise   = ([xN], sN) : zf w
+
+genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT JConj Maybe T.Text
+genLine (LineSpec vsp) f    = ReaderT $
+    buildLine . groupByState . runStateT (lift vsp >>= go)
+  where
+    -- | Generate text according to 'VFormSpec'-s.
+    go :: VFormSpec -> StateT JConj [] T.Text
     go vs = do
-      vf <- mapReaderT maybeToList (genSpec' vs)
+      vf <- mapStateT maybeToList (genSpec' vs)
       let vt = writingToLine . f $ vf
       if T.null vt then mzero else pure vt
+    -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
+    buildLineS :: ([T.Text], JConj) -> T.Text
+    buildLineS (ts, jc) = T.concat . L.intersperse "; "
+                            . flip snoc (T.pack . show $ conjNumber jc)
+                            $ ts
+    -- | Build a line from several blocks for /different/ 'JConj'-s.
+    buildLine :: [([T.Text], JConj)] -> Maybe T.Text
+    buildLine []    = mzero
+    buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT JConj [] T.Text
 genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f

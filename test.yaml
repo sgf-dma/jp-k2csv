@@ -21,3 +21,10 @@
               - "v2"
             base: "teBased"
             new:  "た"
+        - vform: &potential
+            rowMod: "transPair"
+            filter:
+              - "v2"
+            base: "teBased"
+            new:  "て"
+

@@ -124,7 +124,7 @@ data JConj          = JConj
                         , conjTranslate :: String
                         , conjTags      :: [String]
                         }
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 defJConj :: JConj
 defJConj = JConj

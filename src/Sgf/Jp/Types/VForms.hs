@@ -14,6 +14,7 @@ module Sgf.Jp.Types.VForms
     , RunSpec (..)
     , FileSpec (..)
     , defFileSpec
+    , VFReader (..)
 
     , dictBased
     )
@@ -326,6 +327,8 @@ isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
+data VFReader       = VFReader {curJConj :: JConj, jconjMap :: M.Map Int [JConj]}
+  deriving (Show)
 
 maybeNotEmpty :: [a] -> Maybe [a]
 maybeNotEmpty xs
