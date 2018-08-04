@@ -19,6 +19,7 @@ import           System.Directory
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Control.Arrow
 
 import Sgf.Jp.Types
 import Sgf.Jp.Types.VForms
@@ -27,35 +28,38 @@ import Sgf.Jp.Types.VForms
 writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . L.intersperse ", "
 
-genSpec' :: VFormSpec -> StateT JConj Maybe VForm2
-genSpec' VFormSpec{..} = get >>= go
+genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
+genSpec' VFormSpec{..} = gets curJConj >>= go
   where
-    go :: JConj -> StateT JConj Maybe VForm2
+    go :: JConj -> StateT VFReader Maybe VForm2
     go jc
-      | all (flip inConjTags jc) vformFilter = return (stem jc)
+      | all (flip inConjTags jc) vformFilter = gets (rowMod . jconjMap) >>= \f ->
+            lift (stem <$> f jc)
       | otherwise = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list
 -- elements.
-groupByState :: Eq b => [(a, b)] -> [([a], b)]
-groupByState []       = []
-groupByState (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
+groupByState :: (b -> b -> Bool) -> [(a, b)] -> [([a], b)]
+groupByState _  []        = []
+groupByState eq (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
   where
     -- | Check /next/ element state against /current/ element state and add
     -- /next/ element into corresponding result group.
-    go :: Eq b => (a, b) -> ((a, b) -> [([a], b)]) -> (a, b) -> [([a], b)]
+    --go :: (a, b) -> ((a, b) -> [([a], b)]) -> (a, b) -> [([a], b)]
     go w@(_, s) zf (xN, sN)
-      | s == sN     = case zf w of
+      | s `eq` sN     = case zf w of
                         []              -> error "Impossible condition in `groupByState`."
                         ((ys, _) : zs)  -> (xN : ys, sN) : zs
       | otherwise   = ([xN], sN) : zf w
 
-genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT JConj Maybe T.Text
+genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
 genLine (LineSpec vsp) f    = ReaderT $
-    buildLine . groupByState . runStateT (lift vsp >>= go)
+    buildLine . map (second curJConj)
+    . groupByState (\v1 v2 -> curJConj v1 == curJConj v2)
+    . runStateT (lift vsp >>= go)
   where
     -- | Generate text according to 'VFormSpec'-s.
-    go :: VFormSpec -> StateT JConj [] T.Text
+    go :: VFormSpec -> StateT VFReader [] T.Text
     go vs = do
       vf <- mapStateT maybeToList (genSpec' vs)
       let vt = writingToLine . f $ vf
@@ -70,7 +74,7 @@ genLine (LineSpec vsp) f    = ReaderT $
     buildLine []    = mzero
     buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
-genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT JConj [] T.Text
+genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
 genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f
 
 zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
@@ -79,20 +83,23 @@ zipM mxs mys    = do
     ys <- mys
     return (zip xs ys)
 
-generateForms' :: QSpec -> JConj -> [(T.Text, T.Text)]
+generateForms' :: QSpec -> VFReader -> [(T.Text, T.Text)]
 generateForms' QSpec{..} = zipM (runReaderT questions) (runReaderT answer)
   where
-    questions :: ReaderT JConj [] T.Text
-    questions   = asks questionWriting >>= genLine' questionSpec
+    questions :: ReaderT VFReader [] T.Text
+    questions   = asks (questionWriting . curJConj) >>= genLine' questionSpec
     -- There is only answer, i just repeat to match the number of questions.
-    answer :: ReaderT JConj [] T.Text
-    answer      = mapReaderT (maybe [] repeat) (asks answerWriting >>= genLine answerSpec)
+    answer :: ReaderT VFReader [] T.Text
+    answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
 
-generateForms :: Foldable t => [QSpec] -> t [JConj] -> [(T.Text, T.Text)]
-generateForms rs    = foldr ((++) . go) []
+--generateForms :: Foldable t => [QSpec] -> t [JConj] -> [(T.Text, T.Text)]
+generateForms :: [QSpec] -> M.Map Int [JConj] -> [(T.Text, T.Text)]
+generateForms rs jcs = foldr ((++) . go) [] jcs
   where
+    vfr :: JConj -> VFReader
+    vfr jc = VFReader {curJConj = jc, jconjMap = jcs}
     go :: [JConj] -> [(T.Text, T.Text)]
-    go ys = rs >>= \r -> ys >>= generateForms' r
+    go ys = rs >>= \r -> ys >>= generateForms' r . vfr
 
 lnumFilter :: LNumFilter -> LNum -> Bool
 lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom

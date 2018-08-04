@@ -207,11 +207,11 @@ rowModFuncs   = [ ("id", const (Just <$> id))
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
 lookupTransPair xs v = conjTransRef v >>= flip M.lookup xs >>= listToMaybe
 
-data VFormSpec = forall m. Foldable m => VFormSpec
+data VFormSpec = VFormSpec
                     { vformBase :: T.Text
                     , stem :: JConj -> VForm2
                     , vformFilter :: [T.Text]
-                    , rowMod :: m [JConj] -> JConj -> Maybe JConj
+                    , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
                     }
 
 instance Show VFormSpec where
