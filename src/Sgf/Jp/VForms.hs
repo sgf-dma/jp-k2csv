@@ -33,7 +33,7 @@ genSpec' VFormSpec{..} = gets curJConj >>= go
   where
     go :: JConj -> StateT VFReader Maybe VForm2
     go jc
-      | all (flip inConjTags jc) (tagFilter vformFilter)
+      | applyFilter vformFilter jc
             = gets (rowMod . jconjMap) >>= \f -> lift (stem <$> f jc)
       | otherwise = mzero
 
@@ -134,4 +134,13 @@ writeRunSpec mconj rs@RunSpec{..} = do
     applyFilter :: Maybe LNumFilter -> [JConj] -> Bool
     applyFilter Nothing     = const True
     applyFilter (Just p)    = any (inConjLnums (lnumFilter p))
+
+applyFilter :: VFormFilter -> JConj -> Bool
+applyFilter VFormFilter{..} = (&&) <$> applyLFilter lFilter <*> applyTagFilter tagFilter
+  where
+    applyLFilter :: Maybe LNumFilter -> JConj -> Bool
+    applyLFilter Nothing    = const True
+    applyLFilter (Just p)   = inConjLnums (lnumFilter p)
+    applyTagFilter :: [T.Text] -> JConj -> Bool
+    applyTagFilter ts jc = all (flip inConjTags jc) ts
 

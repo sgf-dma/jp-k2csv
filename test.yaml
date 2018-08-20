@@ -3,7 +3,7 @@
   files: &files
     dest: "./vforms/test"
   filter: &filter
-    from: 0
+    from: 14
   questions:
     - front:
         - line:
@@ -18,13 +18,17 @@
         - vform:
             rowMod: "transPair"
             filter:
+              lesson:
+                till: 29
               tags:
-                - "v2"
+                - "v1"
             base: "teBased"
             new:  "た"
         - vform:
             rowMod: "id"
             filter:
+              lesson:
+                from: 15
               tags:
                 - "v2"
             base: "teBased"
