@@ -6,11 +6,12 @@
 module Sgf.Jp.Types.VForms
     ( Writing
     , VForm2 (..)
+    , LNumFilter (..)
+    , VFormFilter (..)
     , VFormSpec (..)
     , LineSpec (..)
     , QSpec (..)
     , defQSpec
-    , LNumFilter (..)
     , RunSpec (..)
     , FileSpec (..)
     , defFileSpec
@@ -207,10 +208,32 @@ rowModFuncs   = [ ("id", const (Just <$> id))
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
 lookupTransPair xs v = conjTransRef v >>= flip M.lookup xs >>= listToMaybe
 
+data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
+                | Lesson        {lnumEq :: Int}
+  deriving (Show)
+
+instance FromJSON LNumFilter where
+    parseJSON v     =
+            withObject "LNumFilter"
+                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
+        <|> Lesson <$> parseJSON v
+
+data VFormFilter = VFormFilter  { lFilter   :: Maybe LNumFilter
+                                , tagFilter :: [T.Text]
+                                }
+  deriving (Show)
+
+defVFormFilter :: VFormFilter
+defVFormFilter  = VFormFilter   {lFilter = Nothing, tagFilter = []}
+
+instance FromJSON VFormFilter where
+    parseJSON       = withObject "VFormFilter" $ \o ->
+        VFormFilter <$> o .:? "lesson" <*> (fromMaybe [] <$> o .:? "tags")
+
 data VFormSpec = VFormSpec
                     { vformBase :: T.Text
                     , stem :: JConj -> VForm2
-                    , vformFilter :: [T.Text]
+                    , vformFilter :: VFormFilter
                     , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
                     }
 
@@ -239,7 +262,7 @@ instance FromJSON VFormSpec where
             VFormSpec
               <$> pure b
               <*> (f <$> v .: "new")
-              <*> (v .:? "filter" .!= [])
+              <*> (v .:? "filter" .!= defVFormFilter)
               <*> pure g
 
 -- Forms, which should be output on a single line.
@@ -280,16 +303,6 @@ instance FromJSON QSpec where
                                 <*> pure (isKanji False)
                                 <*> v .: "back"
                                 <*> pure (isKanji True)
-
-data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
-                | Lesson        {lnumEq :: Int}
-  deriving (Show)
-
-instance FromJSON LNumFilter where
-    parseJSON v     =
-            withObject "LNumFilter"
-                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
-        <|> Lesson <$> parseJSON v
 
 data FileSpec   = FileSpec
                     { destDir   :: FilePath

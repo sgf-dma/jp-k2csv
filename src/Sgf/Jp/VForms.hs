@@ -33,8 +33,8 @@ genSpec' VFormSpec{..} = gets curJConj >>= go
   where
     go :: JConj -> StateT VFReader Maybe VForm2
     go jc
-      | all (flip inConjTags jc) vformFilter = gets (rowMod . jconjMap) >>= \f ->
-            lift (stem <$> f jc)
+      | all (flip inConjTags jc) (tagFilter vformFilter)
+            = gets (rowMod . jconjMap) >>= \f -> lift (stem <$> f jc)
       | otherwise = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list

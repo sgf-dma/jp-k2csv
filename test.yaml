@@ -3,28 +3,30 @@
   files: &files
     dest: "./vforms/test"
   filter: &filter
-    from: 14
-    till: 30
+    from: 0
   questions:
     - front:
         - line:
           - vform:
               filter:
-                - "intransitive"
+                tags:
+                  - "intransitive"
               base: "dictBased"
               new:  ""
       back:
-        line: &potentialL
-        - vform: &potential
+        line:
+        - vform:
             rowMod: "transPair"
             filter:
-              - "v2"
+              tags:
+                - "v2"
             base: "teBased"
             new:  "た"
-        - vform: &potential
+        - vform:
             rowMod: "id"
             filter:
-              - "v2"
+              tags:
+                - "v2"
             base: "teBased"
             new:  "て"
 
