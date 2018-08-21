@@ -11,6 +11,7 @@
               filter:
                 tags:
                   - "intransitive"
+                  - "v2"
               base: "dictBased"
               new:  ""
       back:
@@ -29,8 +30,6 @@
             filter:
               lesson:
                 from: 15
-              tags:
-                - "v2"
             base: "teBased"
             new:  "て"
 

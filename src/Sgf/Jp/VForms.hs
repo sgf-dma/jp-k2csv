@@ -29,13 +29,13 @@ writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . L.intersperse ", "
 
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
-genSpec' VFormSpec{..} = gets curJConj >>= go
+genSpec' VFormSpec{..} = do
+    VFReader{..} <- get
+    lift (rowMod jconjMap curJConj) >>= go
   where
     go :: JConj -> StateT VFReader Maybe VForm2
-    go jc
-      | applyFilter vformFilter jc
-            = gets (rowMod . jconjMap) >>= \f -> lift (stem <$> f jc)
-      | otherwise = mzero
+    go jc  | applyFilter vformFilter jc    = pure (stem jc)
+           | otherwise                     = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list
 -- elements.

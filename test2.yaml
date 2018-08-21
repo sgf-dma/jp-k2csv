@@ -1,0 +1,42 @@
+
+- name: "test"
+  files: &files
+    dest: "./vforms/test"
+  filter: &filter
+    from: 14
+  questions:
+    - front:
+        - line:
+          - vform:
+              filter:
+                tags:
+                  - "intransitive"
+                  - "v1"
+                lesson:
+                  till: 29
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            rowMod: "transPair"
+            base: "teBased"
+            new:  "た"
+    - front:
+        - line:
+          - vform:
+              filter:
+                lesson:
+                  from: 15
+                tags:
+                  - "intransitive"
+                  - "v2"
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+          - vform:
+              rowMod: "id"
+              base: "teBased"
+              new:  "て"
+
