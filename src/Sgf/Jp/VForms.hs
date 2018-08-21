@@ -28,11 +28,18 @@ import Sgf.Jp.Types.VForms
 writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . L.intersperse ", "
 
+modifyM :: MonadState s m => (s -> m s) -> m ()
+modifyM f = get >>= f >>= put
+
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
-    VFReader{..} <- get
-    lift (rowMod jconjMap curJConj) >>= go
+    modifyM f
+    gets curJConj >>= go
   where
+    f :: VFReader -> StateT VFReader Maybe VFReader
+    f vf@VFReader{..} = do
+        nj <- lift (rowMod jconjMap curJConj)
+        pure (vf{curJConj = nj})
     go :: JConj -> StateT VFReader Maybe VForm2
     go jc  | applyFilter vformFilter jc    = pure (stem jc)
            | otherwise                     = mzero
