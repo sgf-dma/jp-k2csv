@@ -8,6 +8,7 @@ module Sgf.Jp.VForms
   where
 
 import Data.Maybe
+import Data.Monoid
 import qualified Data.List              as L
 import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
@@ -34,15 +35,16 @@ modifyM f = get >>= f >>= put
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
     modifyM f
-    gets curJConj >>= go
+    VFReader{..} <- get
+    go (globalFilter <> vformFilter) curJConj
   where
     f :: VFReader -> StateT VFReader Maybe VFReader
     f vf@VFReader{..} = do
         nj <- lift (rowMod jconjMap curJConj)
         pure (vf{curJConj = nj})
-    go :: JConj -> StateT VFReader Maybe VForm2
-    go jc  | applyFilter vformFilter jc    = pure (stem jc)
-           | otherwise                     = mzero
+    go :: VFormFilter -> JConj -> StateT VFReader Maybe VForm2
+    go vfp jc | applyFilter vfp jc  = pure (stem jc)
+              | otherwise           = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list
 -- elements.
@@ -90,8 +92,8 @@ zipM mxs mys    = do
     ys <- mys
     return (zip xs ys)
 
-generateForms' :: QSpec -> VFReader -> [(T.Text, T.Text)]
-generateForms' QSpec{..} = zipM (runReaderT questions) (runReaderT answer)
+generateForms' :: QSpec -> ReaderT VFReader [] (T.Text, T.Text)
+generateForms' QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT answer)
   where
     questions :: ReaderT VFReader [] T.Text
     questions   = asks (questionWriting . curJConj) >>= genLine' questionSpec
@@ -99,14 +101,12 @@ generateForms' QSpec{..} = zipM (runReaderT questions) (runReaderT answer)
     answer :: ReaderT VFReader [] T.Text
     answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
 
---generateForms :: Foldable t => [QSpec] -> t [JConj] -> [(T.Text, T.Text)]
-generateForms :: [QSpec] -> M.Map Int [JConj] -> [(T.Text, T.Text)]
-generateForms rs jcs = foldr ((++) . go) [] jcs
-  where
-    vfr :: JConj -> VFReader
-    vfr jc = VFReader {curJConj = jc, jconjMap = jcs}
-    go :: [JConj] -> [(T.Text, T.Text)]
-    go ys = rs >>= \r -> ys >>= generateForms' r . vfr
+generateForms :: [QSpec] -> ReaderT VFReader [] (T.Text, T.Text)
+generateForms qs = do
+    VFReader{..} <- ask
+    jc <- lift $ concat (M.elems jconjMap)
+    q  <- lift qs
+    local (\vf -> vf{curJConj = jc}) (generateForms' q)
 
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
@@ -128,10 +128,9 @@ writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj rs@RunSpec{..} = do
     print runFilter
     print rs
+    let vfr = VFReader {jconjMap = mconj, globalFilter = runFilter, curJConj = undefined}
     writeVerbFiles files (T.unpack runName) . unzip
-        . generateForms runSpec
-        . M.filter (any (applyFilter runFilter))
-        $ mconj
+        $ runReaderT (generateForms runSpec) vfr
 
 lnumFilter :: LNumFilter -> LNum -> Bool
 lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
@@ -139,7 +138,10 @@ lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
 lnumFilter Lesson{..} LNum{..}  = lnumEq == lessonNum
 
 applyFilter :: VFormFilter -> JConj -> Bool
-applyFilter VFormFilter{..} = (&&) <$> applyLFilter lFilter <*> applyTagFilter tagFilter
+applyFilter VFormFilter{..} =
+    (&&)
+        <$> applyLFilter (getLast lFilter)
+        <*> applyTagFilter tagFilter
   where
     applyLFilter :: Maybe LNumFilter -> JConj -> Bool
     applyLFilter Nothing    = const True

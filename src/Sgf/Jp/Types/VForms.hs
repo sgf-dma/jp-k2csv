@@ -218,17 +218,25 @@ instance FromJSON LNumFilter where
                 (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
         <|> Lesson <$> parseJSON v
 
-data VFormFilter = VFormFilter  { lFilter   :: Maybe LNumFilter
+data VFormFilter = VFormFilter  { lFilter   :: Last LNumFilter
                                 , tagFilter :: [T.Text]
                                 }
   deriving (Show)
 
 defVFormFilter :: VFormFilter
-defVFormFilter  = VFormFilter   {lFilter = Nothing, tagFilter = []}
+defVFormFilter  = VFormFilter   {lFilter = Last Nothing, tagFilter = []}
 
 instance FromJSON VFormFilter where
     parseJSON       = withObject "VFormFilter" $ \o ->
-        VFormFilter <$> o .:? "lesson" <*> (fromMaybe [] <$> o .:? "tags")
+        VFormFilter
+            <$> (Last <$> o .:? "lesson")
+            <*> (fromMaybe [] <$> o .:? "tags")
+instance Monoid VFormFilter where
+    mempty      = defVFormFilter
+    vf1 `mappend` vf2   = VFormFilter
+                            { lFilter = lFilter vf1 <> lFilter vf2
+                            , tagFilter = tagFilter vf1 <> tagFilter vf2
+                            }
 
 data VFormSpec = VFormSpec
                     { vformBase :: T.Text
@@ -340,7 +348,11 @@ isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
-data VFReader       = VFReader {curJConj :: JConj, jconjMap :: M.Map Int [JConj]}
+data VFReader       = VFReader
+                        { curJConj :: JConj
+                        , jconjMap :: M.Map Int [JConj]
+                        , globalFilter :: VFormFilter
+                        }
   deriving (Show)
 
 maybeNotEmpty :: [a] -> Maybe [a]
