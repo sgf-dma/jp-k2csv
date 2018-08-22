@@ -108,11 +108,6 @@ generateForms rs jcs = foldr ((++) . go) [] jcs
     go :: [JConj] -> [(T.Text, T.Text)]
     go ys = rs >>= \r -> ys >>= generateForms' r . vfr
 
-lnumFilter :: LNumFilter -> LNum -> Bool
-lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
-                                  && maybe True (>= lessonNum) lnumTill
-lnumFilter Lesson{..} LNum{..}  = lnumEq == lessonNum
-
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
     createDirectoryIfMissing True destDir
@@ -135,12 +130,13 @@ writeRunSpec mconj rs@RunSpec{..} = do
     print rs
     writeVerbFiles files (T.unpack runName) . unzip
         . generateForms runSpec
-        . M.filter (applyFilter runFilter)
+        . M.filter (any (applyFilter runFilter))
         $ mconj
-  where
-    applyFilter :: Maybe LNumFilter -> [JConj] -> Bool
-    applyFilter Nothing     = const True
-    applyFilter (Just p)    = any (inConjLnums (lnumFilter p))
+
+lnumFilter :: LNumFilter -> LNum -> Bool
+lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
+                                  && maybe True (>= lessonNum) lnumTill
+lnumFilter Lesson{..} LNum{..}  = lnumEq == lessonNum
 
 applyFilter :: VFormFilter -> JConj -> Bool
 applyFilter VFormFilter{..} = (&&) <$> applyLFilter lFilter <*> applyTagFilter tagFilter

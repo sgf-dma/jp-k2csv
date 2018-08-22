@@ -324,7 +324,7 @@ instance FromJSON FileSpec where
 data RunSpec = RunSpec
                 { runName   :: T.Text
                 , runSpec   :: [QSpec]
-                , runFilter :: Maybe LNumFilter
+                , runFilter :: VFormFilter
                 , files     :: FileSpec
                 }
   deriving (Show)
@@ -333,7 +333,7 @@ instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
-                        <*> v .:? "filter" .!= Nothing
+                        <*> v .:? "filter" .!= defVFormFilter
                         <*> v .:? "files" .!= defFileSpec
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
