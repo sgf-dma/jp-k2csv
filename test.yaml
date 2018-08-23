@@ -3,13 +3,16 @@
   files: &files
     dest: "./vforms/test"
   filter: &filter
-    lesson:
+    lesson: &lfilter
       from: 14
+    tags:
+      - "test"
   questions:
     - front:
         - line:
           - vform:
               filter:
+                <<: *filter
                 tags:
                   - "intransitive"
                   - "v2"

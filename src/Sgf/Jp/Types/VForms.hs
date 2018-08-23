@@ -218,30 +218,21 @@ instance FromJSON LNumFilter where
                 (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
         <|> Lesson <$> parseJSON v
 
-data VFormFilter = VFormFilter  { lFilter   :: Last LNumFilter
+data VFormFilter = VFormFilter  { lFilter   :: Maybe LNumFilter
                                 , tagFilter :: [T.Text]
                                 }
   deriving (Show)
 
-defVFormFilter :: VFormFilter
-defVFormFilter  = VFormFilter   {lFilter = Last Nothing, tagFilter = []}
-
 instance FromJSON VFormFilter where
     parseJSON       = withObject "VFormFilter" $ \o ->
         VFormFilter
-            <$> (Last <$> o .:? "lesson")
+            <$> (o .:? "lesson")
             <*> (fromMaybe [] <$> o .:? "tags")
-instance Monoid VFormFilter where
-    mempty      = defVFormFilter
-    vf1 `mappend` vf2   = VFormFilter
-                            { lFilter = lFilter vf1 <> lFilter vf2
-                            , tagFilter = tagFilter vf1 <> tagFilter vf2
-                            }
 
 data VFormSpec = VFormSpec
                     { vformBase :: T.Text
                     , stem :: JConj -> VForm2
-                    , vformFilter :: VFormFilter
+                    , vformFilter :: Last VFormFilter
                     , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
                     }
 
@@ -270,7 +261,7 @@ instance FromJSON VFormSpec where
             VFormSpec
               <$> pure b
               <*> (f <$> v .: "new")
-              <*> (v .:? "filter" .!= defVFormFilter)
+              <*> (Last <$> (v .:? "filter"))
               <*> pure g
 
 -- Forms, which should be output on a single line.
@@ -331,8 +322,8 @@ instance FromJSON FileSpec where
 
 data RunSpec = RunSpec
                 { runName   :: T.Text
-                , runSpec   :: [QSpec]
-                , runFilter :: VFormFilter
+                , qsSpec    :: [QSpec]
+                , runFilter :: Last VFormFilter
                 , files     :: FileSpec
                 }
   deriving (Show)
@@ -341,7 +332,7 @@ instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
-                        <*> v .:? "filter" .!= defVFormFilter
+                        <*> (Last <$> (v .:? "filter"))
                         <*> v .:? "files" .!= defFileSpec
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
@@ -351,7 +342,7 @@ isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAl
 data VFReader       = VFReader
                         { curJConj :: JConj
                         , jconjMap :: M.Map Int [JConj]
-                        , globalFilter :: VFormFilter
+                        , runSpec  :: RunSpec
                         }
   deriving (Show)
 

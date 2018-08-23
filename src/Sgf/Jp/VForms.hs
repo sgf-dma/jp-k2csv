@@ -36,15 +36,15 @@ genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
     modifyM f
     VFReader{..} <- get
-    go (globalFilter <> vformFilter) curJConj
+    go (getLast (runFilter runSpec <> vformFilter)) curJConj
   where
     f :: VFReader -> StateT VFReader Maybe VFReader
     f vf@VFReader{..} = do
         nj <- lift (rowMod jconjMap curJConj)
         pure (vf{curJConj = nj})
-    go :: VFormFilter -> JConj -> StateT VFReader Maybe VForm2
-    go vfp jc | applyFilter vfp jc  = pure (stem jc)
-              | otherwise           = mzero
+    go :: Maybe VFormFilter -> JConj -> StateT VFReader Maybe VForm2
+    go mvf jc | maybe True (flip applyFilter jc) mvf = pure (stem jc)
+              | otherwise = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list
 -- elements.
@@ -101,11 +101,11 @@ generateForms' QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT ans
     answer :: ReaderT VFReader [] T.Text
     answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
 
-generateForms :: [QSpec] -> ReaderT VFReader [] (T.Text, T.Text)
-generateForms qs = do
+generateForms :: ReaderT VFReader [] (T.Text, T.Text)
+generateForms = do
     VFReader{..} <- ask
     jc <- lift $ concat (M.elems jconjMap)
-    q  <- lift qs
+    q  <- lift (qsSpec runSpec)
     local (\vf -> vf{curJConj = jc}) (generateForms' q)
 
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
@@ -128,9 +128,9 @@ writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj rs@RunSpec{..} = do
     print runFilter
     print rs
-    let vfr = VFReader {jconjMap = mconj, globalFilter = runFilter, curJConj = undefined}
+    let vfr = VFReader {jconjMap = mconj, runSpec = rs, curJConj = undefined}
     writeVerbFiles files (T.unpack runName) . unzip
-        $ runReaderT (generateForms runSpec) vfr
+        $ runReaderT generateForms vfr
 
 lnumFilter :: LNumFilter -> LNum -> Bool
 lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom
@@ -140,7 +140,7 @@ lnumFilter Lesson{..} LNum{..}  = lnumEq == lessonNum
 applyFilter :: VFormFilter -> JConj -> Bool
 applyFilter VFormFilter{..} =
     (&&)
-        <$> applyLFilter (getLast lFilter)
+        <$> applyLFilter lFilter
         <*> applyTagFilter tagFilter
   where
     applyLFilter :: Maybe LNumFilter -> JConj -> Bool
