@@ -1,17 +1,23 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ExistentialQuantification          #-}
 
 module Sgf.Jp.Types.VForms
     ( Writing
     , VForm2 (..)
+    , LNumFilter (..)
+    , VFormFilter (..)
     , VFormSpec (..)
     , LineSpec (..)
     , QSpec (..)
     , defQSpec
-    , LNumFilter (..)
     , RunSpec (..)
     , FileSpec (..)
     , defFileSpec
+    , VFReader (..)
+
+    , dictBased
     )
   where
 
@@ -21,6 +27,7 @@ import           Data.Tuple
 import           Data.Yaml
 import           Data.Aeson.Types
 import qualified Data.Text              as T
+import qualified Data.Map               as M
 import           Control.Applicative
 import           Control.Arrow
 
@@ -157,7 +164,8 @@ potentialBased suf w
             , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | otherwise = error "Unknown verb conjugation."
+  -- FIXME: Just skip this vform. But his requires result of type 'Maybe'.
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
   where
     kanjiStem :: JConj -> String
     kanjiStem y | null (dictFormK w) = dictForm y
@@ -192,20 +200,73 @@ baseForms   =   [ ("teBased", teBased)
                 , ("potentialBased", potentialBased)
                 ]
 
-newtype VFormSpec = VFormSpec { stem :: JConj -> VForm2 }
+rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
+rowModFuncs   = [ ("id", const (Just <$> id))
+                , ("transPair", lookupTransPair)
+                ]
+
+lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
+lookupTransPair xs v = conjTransRef v >>= flip M.lookup xs >>= listToMaybe
+
+data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
+                | Lesson        {lnumEq :: Int}
+  deriving (Show)
+
+instance FromJSON LNumFilter where
+    parseJSON v     =
+            withObject "LNumFilter"
+                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
+        <|> Lesson <$> parseJSON v
+
+data VFormFilter = VFormFilter  { lFilter   :: Maybe LNumFilter
+                                , tagFilter :: [T.Text]
+                                }
+  deriving (Show)
+
+instance FromJSON VFormFilter where
+    parseJSON       = withObject "VFormFilter" $ \o ->
+        VFormFilter
+            <$> (o .:? "lesson")
+            <*> (fromMaybe [] <$> o .:? "tags")
+
+data VFormSpec = VFormSpec
+                    { vformBase :: T.Text
+                    , stem :: JConj -> VForm2
+                    , vformFilter :: Last VFormFilter
+                    , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
+                    }
+
+instance Show VFormSpec where
+    showsPrec d vs = showParen (d > app_prec)
+        $ showString "VFormSpec {"
+        . showString "vformBase = " . showsPrec (d + 1) (vformBase vs)
+        . showString ", vformFilter = " . showsPrec (d + 1) (vformFilter vs)
+        . showString "}"
+      where app_prec = 10
 
 instance FromJSON VFormSpec where
     parseJSON = withObject "vform" $ \v -> explicitParseField go v "vform"
       where
         go :: Value -> Parser VFormSpec
         go = withObject "Object" $ \v -> do
-            r <- v .: "base"
+            b <- v .: "base"
+            -- FIXME: Because now i store 'vformBase' name in 'VFormSpec' i
+            -- may move base function lookup out of this module.
             f <- maybe (fail "Can't find base function") return
-                    $ lookup r baseForms
-            VFormSpec . f <$> v .: "new"
+                    $ lookup b baseForms
+            -- FIXME: Better default handling.
+            r <- v .:? "rowMod" .!= "id"
+            g <- maybe (fail "Can't find row modification function") return
+                    $ lookup r rowModFuncs
+            VFormSpec
+              <$> pure b
+              <*> (f <$> v .: "new")
+              <*> (Last <$> (v .:? "filter"))
+              <*> pure g
 
 -- Forms, which should be output on a single line.
 newtype LineSpec = LineSpec {lineSpec :: [VFormSpec]}
+  deriving (Show)
 
 instance FromJSON LineSpec where
     parseJSON   = withObject "line" $ \v -> LineSpec <$> v .: "line"
@@ -219,6 +280,14 @@ data QSpec        = QSpec
                         , answerSpec    :: LineSpec
                         , answerWriting :: JConj -> VForm2 -> Writing
                         }
+
+instance Show QSpec where
+    showsPrec d qs = showParen (d > app_prec)
+        $ showString "QSpec {"
+        . showString "questionSpec = " . showsPrec (d + 1) (questionSpec qs)
+        . showString ", answerSpec = " . showsPrec (d + 1) (answerSpec qs)
+        . showString "}"
+      where app_prec = 10
 defQSpec :: QSpec
 defQSpec      = QSpec
                         { questionSpec      = []
@@ -234,20 +303,12 @@ instance FromJSON QSpec where
                                 <*> v .: "back"
                                 <*> pure (isKanji True)
 
-data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
-                | Lesson        {lnumEq :: Int}
-  deriving (Show)
-
-instance FromJSON LNumFilter where
-    parseJSON v     =
-            withObject "LNumFilter"
-                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
-        <|> Lesson <$> parseJSON v
-
 data FileSpec   = FileSpec
                     { destDir   :: FilePath
                     , nfiles    :: Int
                     }
+  deriving (Show)
+
 defFileSpec :: FileSpec
 defFileSpec = FileSpec
                 { destDir = "./vforms"
@@ -261,22 +322,29 @@ instance FromJSON FileSpec where
 
 data RunSpec = RunSpec
                 { runName   :: T.Text
-                , runSpec   :: [QSpec]
-                , runFilter :: Maybe LNumFilter
+                , qsSpec    :: [QSpec]
+                , runFilter :: Last VFormFilter
                 , files     :: FileSpec
                 }
+  deriving (Show)
 
 instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
-                        <*> v .:? "filter" .!= Nothing
+                        <*> (Last <$> (v .:? "filter"))
                         <*> v .:? "files" .!= defFileSpec
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
+data VFReader       = VFReader
+                        { curJConj :: JConj
+                        , jconjMap :: M.Map Int [JConj]
+                        , runSpec  :: RunSpec
+                        }
+  deriving (Show)
 
 maybeNotEmpty :: [a] -> Maybe [a]
 maybeNotEmpty xs
