@@ -31,6 +31,7 @@ import qualified Data.Text              as T
 import qualified Data.Map               as M
 import           Control.Applicative
 import           Control.Arrow
+import           Control.Monad
 
 import           Sgf.Jp.Types
 import           Sgf.Data.Text.Parse
@@ -229,6 +230,7 @@ potentialBased suf w
 
 imperativeBased :: T.Text -> JConj -> Maybe VForm2
 imperativeBased suf w
+  | "noimperative" `elem` conjTags w = mzero
   | "v1" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV1 . T.pack . dictForm $ w
