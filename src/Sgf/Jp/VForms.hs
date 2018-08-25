@@ -43,7 +43,7 @@ genSpec' VFormSpec{..} = do
         nj <- lift (rowMod jconjMap curJConj)
         pure (vf{curJConj = nj})
     go :: Maybe VFormFilter -> JConj -> StateT VFReader Maybe VForm2
-    go mvf jc | maybe True (flip applyFilter jc) mvf = pure (stem jc)
+    go mvf jc | maybe True (flip applyFilter jc) mvf = lift (stem jc)
               | otherwise = mzero
 
 -- | 'groupBy' version using second element of a pair ('State') to group list

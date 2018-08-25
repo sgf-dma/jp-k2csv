@@ -1,0 +1,19 @@
+
+- name: "testi"
+  files: &files
+    dest: "./vforms/testi"
+  filter: &filter
+    lesson: &lfilter
+      from: 5
+  questions:
+    - front:
+        - line:
+          - vform: &dict
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform: &imp
+            base: "imperativeBased"
+            new:  ""
+
