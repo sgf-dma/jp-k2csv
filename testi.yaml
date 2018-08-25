@@ -10,10 +10,8 @@
         - line:
           - vform: &dict
               base: "dictBased"
-              new:  ""
       back:
         line:
         - vform: &imp
             base: "imperativeBased"
-            new:  ""
 

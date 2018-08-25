@@ -332,7 +332,7 @@ instance FromJSON VFormSpec where
                     $ lookup r rowModFuncs
             VFormSpec
               <$> pure b
-              <*> (f <$> v .: "new")
+              <*> (f <$> v .:? "new" .!= "")
               <*> (Last <$> (v .:? "filter"))
               <*> pure g
 
