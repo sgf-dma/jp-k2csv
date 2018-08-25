@@ -1,0 +1,30 @@
+
+- name: "trans-dict"
+  files: &files
+    dest: "./vforms/trans"
+  questions:
+    - front:
+        - line:
+          - vform: &dict
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            <<: *dict
+            rowMod: "transPair"
+
+- name: "trans-masu"
+  files: &files
+    dest: "./vforms/trans"
+  questions:
+    - front:
+        - line:
+          - vform: &masu
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+        - vform:
+            <<: *masu
+            rowMod: "transPair"
