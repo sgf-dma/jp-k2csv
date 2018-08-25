@@ -51,39 +51,39 @@ voicedChars :: [(Char, Char)]
 voicedChars     = [ ( 'て', 'で'), ( 'た', 'だ' ), ('T', 'D') ]
 
 -- | v1 dict form endings with え .
-eForm :: [(Char, Char)]
+eForm :: [(Char, T.Text)]
 eForm  =
-    [ ('う', 'え')
-    , ('く', 'け')
-    , ('ぐ', 'げ')
-    , ('す', 'せ')
-    , ('つ', 'て')
-    , ('ぶ', 'べ')
-    , ('む', 'め')
-    , ('る', 'れ')
+    [ ('う', "え")
+    , ('く', "け")
+    , ('ぐ', "げ")
+    , ('す', "せ")
+    , ('つ', "て")
+    , ('ぶ', "べ")
+    , ('む', "め")
+    , ('る', "れ")
     ]
 
 -- | v1 dict form endings with お .
-oForm :: [(Char, Char)]
+oForm :: [(Char, T.Text)]
 oForm  =
-    [ ('う', 'お')
-    , ('く', 'こ')
-    , ('ぐ', 'ご')
-    , ('す', 'そ')
-    , ('つ', 'と')
-    , ('ぶ', 'べ')
-    , ('む', 'も')
-    , ('る', 'ろ')
+    [ ('う', "おう")
+    , ('く', "こう")
+    , ('ぐ', "ごう")
+    , ('す', "そう")
+    , ('つ', "とう")
+    , ('ぶ', "ぼう")
+    , ('む', "もう")
+    , ('る', "ろう")
     ]
 
 -- | Change v1 verb dict form ending to some other form.
 -- FIXME: Should i take `JConj` here to ensure, that i really change dict
 -- form?
-dictFormTo :: [(Char, Char)] -> T.Text -> Maybe T.Text
+dictFormTo :: [(Char, T.Text)] -> T.Text -> Maybe T.Text
 dictFormTo xs t = do
     let (ts, mc) = (T.dropEnd 1 t, tLastMay t)
     c <- mc
-    T.snoc ts <$> lookup c xs
+    (ts <>) <$> lookup c xs
 
 -- | Map of v3 verb dictionary form to potential dictionary form.
 v3PotentialDict :: [(T.Text, T.Text)]
@@ -91,6 +91,9 @@ v3PotentialDict = [("する", "できる"), ("くる", "こられる"), ("来る
 
 v3Imperative :: [(T.Text, T.Text)]
 v3Imperative = [("する", "しろ"), ("くる", "こい"), ("来る", "来い")]
+
+v3Volational :: [(T.Text, T.Text)]
+v3Volational = [("する", "しよう"), ("くる", "こよう"), ("来る", "来よう")]
 
 -- | Change v3 verb to some other form.
 v3VerbTo :: [(T.Text, T.Text)] -> T.Text -> Maybe T.Text
@@ -207,7 +210,8 @@ potentialBased suf w
     kanjiStem y | null (dictFormK w) = dictForm y
                 | otherwise         = dictFormK y
     genV1 :: T.Text -> Writing
-    genV1       = mapMaybe go . wordsWithSuffix ""
+    genV1   = mapMaybe (\t -> (<> suf) <$> dictFormTo eForm t)
+                . wordsWithSuffix ""
     genV2 :: T.Text -> Writing
     genV2       = map (<> "られ" <> suf) . wordsWithSuffix "る"
     genV3 :: T.Text -> Writing
@@ -222,11 +226,6 @@ potentialBased suf w
         (old, new) <- filter ((`T.isSuffixOf` dw) . fst) v3PotentialDict
         pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
         map (<> suf) (wordsWithSuffix "る" pw)
-    go :: T.Text -> Maybe T.Text
-    go t    = do
-        let (ts, mc) = (T.dropEnd 1 t, tLastMay t)
-        c <- mc
-        (<> suf) . T.snoc ts <$> lookup c eForm
 
 imperativeBased :: T.Text -> JConj -> Maybe VForm2
 imperativeBased suf w
@@ -263,6 +262,40 @@ imperativeBased suf w
     genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Imperative t)
                 . wordsWithSuffix ""
 
+volitionalBased :: T.Text -> JConj -> Maybe VForm2
+volitionalBased suf w
+  | "v1" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV1 . T.pack . dictForm $ w
+            , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v2" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV2 . T.pack . dictForm $ w
+            , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v3" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV3 . T.pack . dictForm $ w
+            , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (dictFormK w) = dictForm y
+                | otherwise         = dictFormK y
+    genV1 :: T.Text -> Writing
+    genV1   = mapMaybe (\t -> (<> suf) <$> dictFormTo oForm t)
+                . wordsWithSuffix ""
+    genV2 :: T.Text -> Writing
+    genV2   = map (<> "よう" <> suf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> Writing
+    genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Volational t)
+                . wordsWithSuffix ""
+
 baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
@@ -270,6 +303,7 @@ baseForms   =   [ ("teBased", teBased)
                 , ("masuBased", masuBased)
                 , ("potentialBased", potentialBased)
                 , ("imperativeBased", imperativeBased)
+                , ("volitionalBased", volitionalBased)
                 ]
 
 rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
@@ -332,7 +366,7 @@ instance FromJSON VFormSpec where
                     $ lookup r rowModFuncs
             VFormSpec
               <$> pure b
-              <*> (f <$> v .: "new")
+              <*> (f <$> v .:? "new" .!= "")
               <*> (Last <$> (v .:? "filter"))
               <*> pure g
 
