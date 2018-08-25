@@ -110,8 +110,8 @@ voicedTPair t
   | otherwise   = maybe (t, t) (both (`T.cons` T.tail t))
                     $ voicedPair (T.head t)
 
-teBased :: T.Text -> JConj -> VForm2
-teBased suf w =
+teBased :: T.Text -> JConj -> Maybe VForm2
+teBased suf w = pure $
     VForm2
         { kanaForm2     = gen . kanaStem $ w
         , kanjiForm2    = gen . kanjiStem $ w
@@ -135,8 +135,8 @@ teBased suf w =
     genV :: T.Text -> Maybe [T.Text]
     genV    = maybeNotEmpty . wordsWithSuffix "で"
 
-naiBased :: T.Text -> JConj -> VForm2
-naiBased suf w =
+naiBased :: T.Text -> JConj -> Maybe VForm2
+naiBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . naiForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -149,8 +149,8 @@ naiBased suf w =
     gen :: T.Text -> Writing
     gen     = map (`T.append` suf) . wordsWithSuffix "ない"
 
-dictBased :: T.Text -> JConj -> VForm2
-dictBased suf w =
+dictBased :: T.Text -> JConj -> Maybe VForm2
+dictBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . dictForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -163,8 +163,8 @@ dictBased suf w =
     gen :: T.Text -> [T.Text]
     gen     = map (`T.append` suf) . wordsWithSuffix ""
 
-masuBased :: T.Text -> JConj -> VForm2
-masuBased suf w =
+masuBased :: T.Text -> JConj -> Maybe VForm2
+masuBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . masuForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -177,21 +177,23 @@ masuBased suf w =
     gen :: T.Text -> [T.Text]
     gen     = map (`T.append` suf) . wordsWithSuffix "ます"
 
-potentialBased :: T.Text -> JConj -> VForm2
+potentialBased :: T.Text -> JConj -> Maybe VForm2
 potentialBased suf w
-  | "v1" `elem` conjTags w =
+  | "v1" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV1 . T.pack . dictForm $ w
             , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v2" `elem` conjTags w =
+  | "v2" `elem` conjTags w = pure $
+
         VForm2
             { kanaForm2     = genV2 . T.pack . dictForm $ w
             , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v3" `elem` conjTags w =
+  | "v3" `elem` conjTags w = pure $
+
         VForm2
             { kanaForm2     = genV3 . T.pack . dictForm $ w
             , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
@@ -225,21 +227,21 @@ potentialBased suf w
         c <- mc
         (<> suf) . T.snoc ts <$> lookup c eForm
 
-imperativeBased :: T.Text -> JConj -> VForm2
+imperativeBased :: T.Text -> JConj -> Maybe VForm2
 imperativeBased suf w
-  | "v1" `elem` conjTags w =
+  | "v1" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV1 . T.pack . dictForm $ w
             , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v2" `elem` conjTags w =
+  | "v2" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV2 . T.pack . dictForm $ w
             , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v3" `elem` conjTags w =
+  | "v3" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV3 . T.pack . dictForm $ w
             , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
@@ -259,7 +261,7 @@ imperativeBased suf w
     genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Imperative t)
                 . wordsWithSuffix ""
 
-baseForms :: [(T.Text, T.Text -> JConj -> VForm2)]
+baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
                 , ("dictBased", dictBased)
@@ -299,7 +301,7 @@ instance FromJSON VFormFilter where
 
 data VFormSpec = VFormSpec
                     { vformBase :: T.Text
-                    , stem :: JConj -> VForm2
+                    , stem :: JConj -> Maybe VForm2
                     , vformFilter :: Last VFormFilter
                     , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
                     }
