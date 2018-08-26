@@ -10,7 +10,6 @@ module Sgf.Jp.VForms
 import Data.Maybe
 import Data.Monoid
 import qualified Data.List              as L
-import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
@@ -76,8 +75,8 @@ genLine (LineSpec vsp) f    = ReaderT $
     -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
     buildLineS :: ([T.Text], JConj) -> T.Text
     buildLineS (ts, jc) = T.concat . L.intersperse "; "
-                            . flip snoc (T.pack . show $ conjNumber jc)
-                            $ ts
+        . (++ (map T.pack $ sequence [conjTranslate, show . conjNumber] jc))
+        $ ts
     -- | Build a line from several blocks for /different/ 'JConj'-s.
     buildLine :: [([T.Text], JConj)] -> Maybe T.Text
     buildLine []    = mzero
