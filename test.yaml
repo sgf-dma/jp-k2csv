@@ -3,16 +3,37 @@
   files: &files
     dest: "./vforms/test"
   filter: &filter
-    from: 24
-    till: 24
+    lesson: &lfilter
+      from: 14
+    tags:
+      - "test"
   questions:
     - front:
         - line:
           - vform:
+              filter:
+                <<: *filter
+                tags:
+                  - "intransitive"
+                  - "v2"
               base: "dictBased"
               new:  ""
       back:
-        line: &potentialL
-        - vform: &potential
-            base: "potentialBased"
-            new:  "ない"
+        line:
+        - vform:
+            rowMod: "transPair"
+            filter:
+              lesson:
+                till: 29
+              tags:
+                - "v1"
+            base: "teBased"
+            new:  "た"
+        - vform:
+            rowMod: "id"
+            filter:
+              lesson:
+                from: 15
+            base: "teBased"
+            new:  "て"
+

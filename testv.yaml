@@ -1,0 +1,17 @@
+
+- name: "testv"
+  files: &files
+    dest: "./vforms/testv"
+  filter: &filter
+    lesson: &lfilter
+      from: 5
+  questions:
+    - front:
+        - line:
+          - vform: &dict
+              base: "dictBased"
+      back:
+        line:
+        - vform: &vol
+            base: "volitionalBased"
+

@@ -1,28 +1,37 @@
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ExistentialQuantification          #-}
 
 module Sgf.Jp.Types.VForms
     ( Writing
     , VForm2 (..)
+    , LNumFilter (..)
+    , VFormFilter (..)
     , VFormSpec (..)
     , LineSpec (..)
     , QSpec (..)
     , defQSpec
-    , LNumFilter (..)
     , RunSpec (..)
     , FileSpec (..)
     , defFileSpec
+    , VFReader (..)
+
+    , dictBased
     )
   where
 
+import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Tuple
 import           Data.Yaml
 import           Data.Aeson.Types
 import qualified Data.Text              as T
+import qualified Data.Map               as M
 import           Control.Applicative
 import           Control.Arrow
+import           Control.Monad
 
 import           Sgf.Jp.Types
 import           Sgf.Data.Text.Parse
@@ -41,21 +50,56 @@ data VForm2         = VForm2
 voicedChars :: [(Char, Char)]
 voicedChars     = [ ( 'て', 'で'), ( 'た', 'だ' ), ('T', 'D') ]
 
-potentialSyllables :: [(Char, Char)]
-potentialSyllables  =
-    [ ('う', 'え')
-    , ('く', 'け')
-    , ('ぐ', 'げ')
-    , ('す', 'せ')
-    , ('つ', 'て')
-    , ('ぶ', 'べ')
-    , ('む', 'め')
-    , ('る', 'れ')
+-- | v1 dict form endings with え .
+eForm :: [(Char, T.Text)]
+eForm  =
+    [ ('う', "え")
+    , ('く', "け")
+    , ('ぐ', "げ")
+    , ('す', "せ")
+    , ('つ', "て")
+    , ('ぶ', "べ")
+    , ('む', "め")
+    , ('る', "れ")
     ]
+
+-- | v1 dict form endings with お .
+oForm :: [(Char, T.Text)]
+oForm  =
+    [ ('う', "おう")
+    , ('く', "こう")
+    , ('ぐ', "ごう")
+    , ('す', "そう")
+    , ('つ', "とう")
+    , ('ぶ', "ぼう")
+    , ('む', "もう")
+    , ('る', "ろう")
+    ]
+
+-- | Change v1 verb dict form ending to some other form.
+-- FIXME: Should i take `JConj` here to ensure, that i really change dict
+-- form?
+dictFormTo :: [(Char, T.Text)] -> T.Text -> Maybe T.Text
+dictFormTo xs t = do
+    let (ts, mc) = (T.dropEnd 1 t, tLastMay t)
+    c <- mc
+    (ts <>) <$> lookup c xs
 
 -- | Map of v3 verb dictionary form to potential dictionary form.
 v3PotentialDict :: [(T.Text, T.Text)]
 v3PotentialDict = [("する", "できる"), ("くる", "こられる"), ("来る", "来られる")]
+
+v3Imperative :: [(T.Text, T.Text)]
+v3Imperative = [("する", "しろ"), ("くる", "こい"), ("来る", "来い")]
+
+v3Volational :: [(T.Text, T.Text)]
+v3Volational = [("する", "しよう"), ("くる", "こよう"), ("来る", "来よう")]
+
+-- | Change v3 verb to some other form.
+v3VerbTo :: [(T.Text, T.Text)] -> T.Text -> Maybe T.Text
+v3VerbTo xs w   = do
+    (old, new) <- find ((`T.isSuffixOf` w) . fst) xs
+    (<> new) <$> (old `T.stripSuffix` w)
 
 -- | Given a character (either voiceless or voiced) return a pair, where first
 -- is voiceless and second is voiced character versions. If given character
@@ -70,8 +114,8 @@ voicedTPair t
   | otherwise   = maybe (t, t) (both (`T.cons` T.tail t))
                     $ voicedPair (T.head t)
 
-teBased :: T.Text -> JConj -> VForm2
-teBased suf w =
+teBased :: T.Text -> JConj -> Maybe VForm2
+teBased suf w = pure $
     VForm2
         { kanaForm2     = gen . kanaStem $ w
         , kanjiForm2    = gen . kanjiStem $ w
@@ -95,8 +139,8 @@ teBased suf w =
     genV :: T.Text -> Maybe [T.Text]
     genV    = maybeNotEmpty . wordsWithSuffix "で"
 
-naiBased :: T.Text -> JConj -> VForm2
-naiBased suf w =
+naiBased :: T.Text -> JConj -> Maybe VForm2
+naiBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . naiForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -109,8 +153,8 @@ naiBased suf w =
     gen :: T.Text -> Writing
     gen     = map (`T.append` suf) . wordsWithSuffix "ない"
 
-dictBased :: T.Text -> JConj -> VForm2
-dictBased suf w =
+dictBased :: T.Text -> JConj -> Maybe VForm2
+dictBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . dictForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -123,8 +167,8 @@ dictBased suf w =
     gen :: T.Text -> [T.Text]
     gen     = map (`T.append` suf) . wordsWithSuffix ""
 
-masuBased :: T.Text -> JConj -> VForm2
-masuBased suf w =
+masuBased :: T.Text -> JConj -> Maybe VForm2
+masuBased suf w = pure $
     VForm2
         { kanaForm2     = gen . T.pack . masuForm $ w
         , kanjiForm2    = gen . T.pack . kanjiStem $ w
@@ -137,33 +181,37 @@ masuBased suf w =
     gen :: T.Text -> [T.Text]
     gen     = map (`T.append` suf) . wordsWithSuffix "ます"
 
-potentialBased :: T.Text -> JConj -> VForm2
+potentialBased :: T.Text -> JConj -> Maybe VForm2
 potentialBased suf w
-  | "v1" `elem` conjTags w =
+  | "v1" `elem` conjTags w = pure $
         VForm2
             { kanaForm2     = genV1 . T.pack . dictForm $ w
             , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v2" `elem` conjTags w =
+  | "v2" `elem` conjTags w = pure $
+
         VForm2
             { kanaForm2     = genV2 . T.pack . dictForm $ w
             , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | "v3" `elem` conjTags w =
+  | "v3" `elem` conjTags w = pure $
+
         VForm2
             { kanaForm2     = genV3 . T.pack . dictForm $ w
             , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
             , translForm2   = [T.pack . conjTranslate $ w]
             }
-  | otherwise = error "Unknown verb conjugation."
+  -- FIXME: Just skip this vform. But his requires result of type 'Maybe'.
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
   where
     kanjiStem :: JConj -> String
     kanjiStem y | null (dictFormK w) = dictForm y
                 | otherwise         = dictFormK y
     genV1 :: T.Text -> Writing
-    genV1       = mapMaybe go . wordsWithSuffix ""
+    genV1   = mapMaybe (\t -> (<> suf) <$> dictFormTo eForm t)
+                . wordsWithSuffix ""
     genV2 :: T.Text -> Writing
     genV2       = map (<> "られ" <> suf) . wordsWithSuffix "る"
     genV3 :: T.Text -> Writing
@@ -178,34 +226,153 @@ potentialBased suf w
         (old, new) <- filter ((`T.isSuffixOf` dw) . fst) v3PotentialDict
         pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
         map (<> suf) (wordsWithSuffix "る" pw)
-    go :: T.Text -> Maybe T.Text
-    go t    = do
-        let (ts, mc) = (T.dropEnd 1 t, tLastMay t)
-        c <- mc
-        (<> suf) . T.snoc ts <$> lookup c potentialSyllables
 
-baseForms :: [(T.Text, T.Text -> JConj -> VForm2)]
+imperativeBased :: T.Text -> JConj -> Maybe VForm2
+imperativeBased suf w
+  | "noimperative" `elem` conjTags w = mzero
+  | "v1" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV1 . T.pack . dictForm $ w
+            , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v2" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV2 . T.pack . dictForm $ w
+            , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v3" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV3 . T.pack . dictForm $ w
+            , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (dictFormK w) = dictForm y
+                | otherwise         = dictFormK y
+    genV1 :: T.Text -> Writing
+    genV1   = mapMaybe (\t -> (<> suf) <$> dictFormTo eForm t)
+                . wordsWithSuffix ""
+    genV2 :: T.Text -> Writing
+    genV2   = map (<> "ろ" <> suf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> Writing
+    genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Imperative t)
+                . wordsWithSuffix ""
+
+volitionalBased :: T.Text -> JConj -> Maybe VForm2
+volitionalBased suf w
+  | "v1" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV1 . T.pack . dictForm $ w
+            , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v2" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV2 . T.pack . dictForm $ w
+            , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v3" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV3 . T.pack . dictForm $ w
+            , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (dictFormK w) = dictForm y
+                | otherwise         = dictFormK y
+    genV1 :: T.Text -> Writing
+    genV1   = mapMaybe (\t -> (<> suf) <$> dictFormTo oForm t)
+                . wordsWithSuffix ""
+    genV2 :: T.Text -> Writing
+    genV2   = map (<> "よう" <> suf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> Writing
+    genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Volational t)
+                . wordsWithSuffix ""
+
+baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
                 , ("dictBased", dictBased)
                 , ("masuBased", masuBased)
                 , ("potentialBased", potentialBased)
+                , ("imperativeBased", imperativeBased)
+                , ("volitionalBased", volitionalBased)
                 ]
 
-newtype VFormSpec = VFormSpec { stem :: JConj -> VForm2 }
+rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
+rowModFuncs   = [ ("id", const (Just <$> id))
+                , ("transPair", lookupTransPair)
+                ]
+
+lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
+lookupTransPair xs v = conjTransRef v >>= flip M.lookup xs >>= listToMaybe
+
+data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
+                | Lesson        {lnumEq :: Int}
+  deriving (Show)
+
+instance FromJSON LNumFilter where
+    parseJSON v     =
+            withObject "LNumFilter"
+                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
+        <|> Lesson <$> parseJSON v
+
+data VFormFilter = VFormFilter  { lFilter   :: Maybe LNumFilter
+                                , tagFilter :: [T.Text]
+                                }
+  deriving (Show)
+
+instance FromJSON VFormFilter where
+    parseJSON       = withObject "VFormFilter" $ \o ->
+        VFormFilter
+            <$> (o .:? "lesson")
+            <*> (fromMaybe [] <$> o .:? "tags")
+
+data VFormSpec = VFormSpec
+                    { vformBase :: T.Text
+                    , stem :: JConj -> Maybe VForm2
+                    , vformFilter :: Last VFormFilter
+                    , rowMod :: M.Map Int [JConj] -> JConj -> Maybe JConj
+                    }
+
+instance Show VFormSpec where
+    showsPrec d vs = showParen (d > app_prec)
+        $ showString "VFormSpec {"
+        . showString "vformBase = " . showsPrec (d + 1) (vformBase vs)
+        . showString ", vformFilter = " . showsPrec (d + 1) (vformFilter vs)
+        . showString "}"
+      where app_prec = 10
 
 instance FromJSON VFormSpec where
     parseJSON = withObject "vform" $ \v -> explicitParseField go v "vform"
       where
         go :: Value -> Parser VFormSpec
         go = withObject "Object" $ \v -> do
-            r <- v .: "base"
+            b <- v .: "base"
+            -- FIXME: Because now i store 'vformBase' name in 'VFormSpec' i
+            -- may move base function lookup out of this module.
             f <- maybe (fail "Can't find base function") return
-                    $ lookup r baseForms
-            VFormSpec . f <$> v .: "new"
+                    $ lookup b baseForms
+            -- FIXME: Better default handling.
+            r <- v .:? "rowMod" .!= "id"
+            g <- maybe (fail "Can't find row modification function") return
+                    $ lookup r rowModFuncs
+            VFormSpec
+              <$> pure b
+              <*> (f <$> v .:? "new" .!= "")
+              <*> (Last <$> (v .:? "filter"))
+              <*> pure g
 
 -- Forms, which should be output on a single line.
 newtype LineSpec = LineSpec {lineSpec :: [VFormSpec]}
+  deriving (Show)
 
 instance FromJSON LineSpec where
     parseJSON   = withObject "line" $ \v -> LineSpec <$> v .: "line"
@@ -219,6 +386,14 @@ data QSpec        = QSpec
                         , answerSpec    :: LineSpec
                         , answerWriting :: JConj -> VForm2 -> Writing
                         }
+
+instance Show QSpec where
+    showsPrec d qs = showParen (d > app_prec)
+        $ showString "QSpec {"
+        . showString "questionSpec = " . showsPrec (d + 1) (questionSpec qs)
+        . showString ", answerSpec = " . showsPrec (d + 1) (answerSpec qs)
+        . showString "}"
+      where app_prec = 10
 defQSpec :: QSpec
 defQSpec      = QSpec
                         { questionSpec      = []
@@ -234,20 +409,12 @@ instance FromJSON QSpec where
                                 <*> v .: "back"
                                 <*> pure (isKanji True)
 
-data LNumFilter = LessonRange   {lnumFrom :: Maybe Int, lnumTill :: Maybe Int}
-                | Lesson        {lnumEq :: Int}
-  deriving (Show)
-
-instance FromJSON LNumFilter where
-    parseJSON v     =
-            withObject "LNumFilter"
-                (\o -> LessonRange <$> o .:? "from" <*> o .:? "till") v
-        <|> Lesson <$> parseJSON v
-
 data FileSpec   = FileSpec
                     { destDir   :: FilePath
                     , nfiles    :: Int
                     }
+  deriving (Show)
+
 defFileSpec :: FileSpec
 defFileSpec = FileSpec
                 { destDir = "./vforms"
@@ -261,22 +428,29 @@ instance FromJSON FileSpec where
 
 data RunSpec = RunSpec
                 { runName   :: T.Text
-                , runSpec   :: [QSpec]
-                , runFilter :: Maybe LNumFilter
+                , qsSpec    :: [QSpec]
+                , runFilter :: Last VFormFilter
                 , files     :: FileSpec
                 }
+  deriving (Show)
 
 instance FromJSON RunSpec where
     parseJSON       = withObject "RunSpec" $ \v -> RunSpec
                         <$> v .: "name"
                         <*> v .: "questions"
-                        <*> v .:? "filter" .!= Nothing
+                        <*> (Last <$> (v .:? "filter"))
                         <*> v .:? "files" .!= defFileSpec
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
+data VFReader       = VFReader
+                        { curJConj :: JConj
+                        , jconjMap :: M.Map Int [JConj]
+                        , runSpec  :: RunSpec
+                        }
+  deriving (Show)
 
 maybeNotEmpty :: [a] -> Maybe [a]
 maybeNotEmpty xs
