@@ -1,6 +1,13 @@
 .stack-work/
+k2csv.cabal
+vforms/
 
 1.csv
 *.tmp
 words.csv
 kana.csv
+words-mnn.csv
+conj.csv
+foreign.csv
+
+random-nums-[0-9]*.txt

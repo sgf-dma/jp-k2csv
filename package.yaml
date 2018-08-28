@@ -1,0 +1,79 @@
+name:       k2csv
+version:    '0.1.0.0'
+category:   Text
+maintainer: sgf.dma@gmail.com
+license:    BSD3
+
+extra-source-files:
+- README.md
+
+dependencies: &deps
+  - base
+  - containers
+  - split
+  - bytestring
+  - cassava
+  - aeson
+  - yaml
+  - mtl
+  - attoparsec
+  - text
+  - unordered-containers
+  - hashable
+  - either
+  - tagged
+  - turtle
+  - extra
+  - optparse-applicative
+  - text-show
+  - random-shuffle
+  - scientific
+  - filepath
+  - directory
+
+ghc-options: &ghc-opts
+  - -Wall
+_exe-ghc-options: &exe-ghc-opts
+  <<: *ghc-opts
+  ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+
+library:
+    source-dirs: src
+    <<: *deps
+executables:
+  k2csv-exe:
+    main: Main.hs
+    source-dirs: app
+    <<: *exe-ghc-opts
+    <<: *deps
+    dependencies:
+    - k2csv
+  random-nums:
+    main: random-nums.hs
+    source-dirs: app
+    <<: *exe-ghc-opts
+    dependencies:
+      - random
+      - random-shuffle
+      - directory
+  verb-forms:
+    main: verb-forms.hs
+    source-dirs: app
+    <<: *exe-ghc-opts
+    dependencies:
+      - k2csv
+      - aeson-pretty
+      - vector
+
+tests:
+  k2csv-test:
+    main: Spec.hs
+    source-dirs: test
+    <<: *exe-ghc-opts
+    <<: *deps
+    dependencies:
+    - base
+    - k2csv
