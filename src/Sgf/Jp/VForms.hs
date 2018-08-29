@@ -61,8 +61,8 @@ groupByState eq (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
                         ((ys, _) : zs)  -> (xN : ys, sN) : zs
       | otherwise   = ([xN], sN) : zf w
 
-genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
-genLine (LineSpec vsp) f    = ReaderT $
+genLine0 :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
+genLine0 (LineSpec vsp) f    = ReaderT $
     buildLine . map (second curJConj)
     . groupByState (\v1 v2 -> curJConj v1 == curJConj v2)
     . runStateT (lift vsp >>= go)
@@ -83,7 +83,32 @@ genLine (LineSpec vsp) f    = ReaderT $
     buildLine []    = mzero
     buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
-genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
+genLine :: LineSpec -> (JConj -> [VForm2] -> [Writing]) -> ReaderT VFReader Maybe T.Text
+genLine (LineSpec vsp) f    = ReaderT $
+    -- FIXME: Reorder `map (second curJConj)` and `groupByState` ?
+    buildLine . map (second curJConj)
+    . groupByState (\v1 v2 -> curJConj v1 == curJConj v2)
+    . runStateT (lift vsp >>= go)
+  where
+    -- | Generate text according to 'VFormSpec'-s.
+    go :: VFormSpec -> StateT VFReader [] VForm2
+    go vs = do
+      mapStateT maybeToList (genSpec' vs)
+      {-let vt = writingToLine . f $ vf
+      if T.null vt then mzero else pure vt-}
+    -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
+    buildLineS :: ([VForm2], JConj) -> T.Text
+    buildLineS (ts, jc) = T.concat . L.intersperse "; "
+                            . flip snoc (T.pack . show $ conjNumber jc)
+                            . filter (not . T.null)
+                            . map writingToLine . (f jc)
+                            $ ts
+    -- | Build a line from several blocks for /different/ 'JConj'-s.
+    buildLine :: [([VForm2], JConj)] -> Maybe T.Text
+    buildLine []    = mzero
+    buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
+
+genLine' :: [LineSpec] -> (JConj -> [VForm2] -> [Writing]) -> ReaderT VFReader [] T.Text
 genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f
 
 zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
@@ -92,14 +117,17 @@ zipM mxs mys    = do
     ys <- mys
     return (zip xs ys)
 
+-- FIXME: Store `JConj -> VForm2 -> Writing` function in `VFReader`.
 generateForms' :: QSpec -> ReaderT VFReader [] (T.Text, T.Text)
 generateForms' QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT answer)
   where
     questions :: ReaderT VFReader [] T.Text
-    questions   = asks (questionWriting . curJConj) >>= genLine' questionSpec
+    questions   = asks (questionWriting . curJConj) >>= \f -> genLine' questionSpec (writingF f)
     -- There is only answer, i just repeat to match the number of questions.
     answer :: ReaderT VFReader [] T.Text
-    answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
+    answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= \f -> genLine answerSpec (writingF f))
+    writingF :: (VForm2 -> Writing) -> JConj -> [VForm2] -> [Writing]
+    writingF f _ vfs = map f vfs
 
 generateForms :: ReaderT VFReader [] (T.Text, T.Text)
 generateForms = do
