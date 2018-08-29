@@ -1,0 +1,34 @@
+
+- name: "testp"
+  files: &files
+    dest: "./vforms/testp"
+  filter: &filter
+    lesson: &lfilter
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            base: "potentialBased"
+            new:  "る"
+
+- name: "testp2"
+  files: *files
+  filter: *filter
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            rowMod: "potentialForm"
+            base: "dictBased"
+            new:  ""
+

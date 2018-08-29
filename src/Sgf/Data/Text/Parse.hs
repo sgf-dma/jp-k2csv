@@ -105,6 +105,19 @@ tLastMay t | T.null t  = Nothing
 -- FIXME: If last matching word ends at `wordSep` it won't be found. [parser]
 -- FIXME: If wordEnd encountered before first match, no further words are
 -- searched. [parser]
+-- FIXME: Inconsistent behavior:
+--
+--      > wordsWithSuffix "a" "abc"
+--      []
+--      > wordsWithSuffix "a" "abca"
+--      ["abc"]
+--      > wordsWithSuffix "a" "def, abca"
+--      ["def, abc"]
+--      > wordsWithSuffix "a" "def, abc"
+--      []
+--      > wordsWithSuffix "a" "defa, abc"
+--      []
+--
 wordsWithSuffix :: T.Text -> T.Text -> [T.Text]
 wordsWithSuffix sf = either (const []) id . A.parseOnly
     (splitUntil

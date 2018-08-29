@@ -5,6 +5,7 @@
 
 module Sgf.Jp.Types.VForms
     ( Writing
+    , writingToLine
     , VForm2 (..)
     , LNumFilter (..)
     , VFormFilter (..)
@@ -39,6 +40,12 @@ import           Sgf.Data.Text.Parse
 
 type Writing        = [T.Text]
 
+-- FIXME: This __must__ be the reverse of `wordsWithSuffix`. I rely on this in
+-- `potentialForm`. And that should fixed. I may fix this, if `JConj` will
+-- have fields of type `[Writing]` instead of `String`..
+writingToLine :: [T.Text] -> T.Text
+writingToLine = T.concat . intersperse ", "
+
 data VForm2         = VForm2
                         { kanaForm2     :: Writing
                         , kanjiForm2    :: Writing
@@ -60,6 +67,7 @@ eForm  =
     , ('つ', "て")
     , ('ぶ', "べ")
     , ('む', "め")
+    , ('ぬ', "ね")
     , ('る', "れ")
     ]
 
@@ -180,6 +188,44 @@ masuBased suf w = pure $
                 | otherwise          = masuFormK y
     gen :: T.Text -> [T.Text]
     gen     = map (`T.append` suf) . wordsWithSuffix "ます"
+
+potentialForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
+potentialForm _ jc = pure $
+    jc
+        { dictForm  = T.unpack . writingToLine . genV "る" . T.pack . dictForm $ jc
+        , dictFormK = T.unpack . writingToLine . genV "る" . T.pack . dictFormK $ jc
+        , masuForm  = T.unpack . writingToLine . genV "ます" . T.pack . dictForm $ jc
+        , masuFormK = T.unpack . writingToLine . genV "ます" . T.pack . dictFormK $ jc
+        , teForm    = T.unpack . writingToLine . genV "て" . T.pack . dictForm $ jc
+        , teFormK   = T.unpack . writingToLine . genV "て" . T.pack . dictFormK $ jc
+        , naiForm   = T.unpack . writingToLine . genV "ない" . T.pack . dictForm $ jc
+        , naiFormK  = T.unpack . writingToLine . genV "ない" . T.pack . dictFormK $ jc
+        }
+  where
+    -- FIXME: Empty list will omit row or.. what?
+    genV1 :: T.Text -> T.Text -> Writing
+    genV1 sf = mapMaybe (\t -> (<> sf) <$> dictFormTo eForm t)
+                . wordsWithSuffix ""
+    genV :: T.Text -> T.Text -> Writing
+    genV
+      | "v1" `elem` conjTags jc = genV1
+      | "v2" `elem` conjTags jc = genV2
+      | "v3" `elem` conjTags jc = genV3
+      | otherwise = error $ "Unknown verb conjugation in potentialForm for " ++ dictForm jc
+    genV2 :: T.Text -> T.Text -> Writing
+    genV2 sf    = map (<> "られ" <> sf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> T.Text -> Writing
+    genV3 sf dws   = do
+        -- TODO: Replace this with row substitution function. I already have
+        -- row for できる , so if i construct correct stem, i may use it. But
+        -- for 来られる there is no row.. should i use 'genV2' then?  Or
+        -- should i use row substitution instead of entire this function:
+        -- replace current row with another one (generated) and use regular
+        -- conjugation base function to construct the final form?
+        dw <- wordsWithSuffix "" dws
+        (old, new) <- filter ((`T.isSuffixOf` dw) . fst) v3PotentialDict
+        pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
+        map (<> sf) (wordsWithSuffix "る" pw)
 
 potentialBased :: T.Text -> JConj -> Maybe VForm2
 potentialBased suf w
@@ -309,6 +355,7 @@ baseForms   =   [ ("teBased", teBased)
 rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
 rowModFuncs   = [ ("id", const (Just <$> id))
                 , ("transPair", lookupTransPair)
+                , ("potentialForm", potentialForm)
                 ]
 
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj

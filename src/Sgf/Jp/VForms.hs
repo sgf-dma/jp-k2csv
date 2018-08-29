@@ -26,9 +26,6 @@ import Sgf.Jp.Types
 import Sgf.Jp.Types.VForms
 
 
-writingToLine :: [T.Text] -> T.Text
-writingToLine = T.concat . L.intersperse ", "
-
 modifyM :: MonadState s m => (s -> m s) -> m ()
 modifyM f = get >>= f >>= put
 
