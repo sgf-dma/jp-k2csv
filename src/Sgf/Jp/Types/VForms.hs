@@ -103,6 +103,9 @@ v3Imperative = [("する", "しろ"), ("くる", "こい"), ("来る", "来い")
 v3Volational :: [(T.Text, T.Text)]
 v3Volational = [("する", "しよう"), ("くる", "こよう"), ("来る", "来よう")]
 
+v3Conditional :: [(T.Text, T.Text)]
+v3Conditional = [("する", "すれば"), ("くる", "くれば"), ("来る", "来れば")]
+
 -- | Change v3 verb to some other form.
 v3VerbTo :: [(T.Text, T.Text)] -> T.Text -> Maybe T.Text
 v3VerbTo xs w   = do
@@ -342,6 +345,40 @@ volitionalBased suf w
     genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Volational t)
                 . wordsWithSuffix ""
 
+conditionalBased :: T.Text -> JConj -> Maybe VForm2
+conditionalBased suf w
+  | "v1" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV1 . T.pack . dictForm $ w
+            , kanjiForm2    = genV1 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v2" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV2 . T.pack . dictForm $ w
+            , kanjiForm2    = genV2 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | "v3" `elem` conjTags w = pure $
+        VForm2
+            { kanaForm2     = genV3 . T.pack . dictForm $ w
+            , kanjiForm2    = genV3 . T.pack . kanjiStem $ w
+            , translForm2   = [T.pack . conjTranslate $ w]
+            }
+  | otherwise = error $ "Unknown verb conjugation for " ++ dictForm w
+  where
+    kanjiStem :: JConj -> String
+    kanjiStem y | null (dictFormK w) = dictForm y
+                | otherwise         = dictFormK y
+    genV1 :: T.Text -> Writing
+    genV1   = mapMaybe (\t -> (<> "ば" <> suf) <$> dictFormTo eForm t)
+                . wordsWithSuffix ""
+    genV2 :: T.Text -> Writing
+    genV2   = map (<> "れば" <> suf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> Writing
+    genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Conditional t)
+                . wordsWithSuffix ""
+
 baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
@@ -350,6 +387,7 @@ baseForms   =   [ ("teBased", teBased)
                 , ("potentialBased", potentialBased)
                 , ("imperativeBased", imperativeBased)
                 , ("volitionalBased", volitionalBased)
+                , ("conditionalBased", conditionalBased)
                 ]
 
 rowModFuncs :: [(T.Text, M.Map Int [JConj] -> JConj -> Maybe JConj)]
