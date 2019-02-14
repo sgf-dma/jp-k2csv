@@ -2,6 +2,8 @@
 k2csv.cabal
 vforms/
 
+.*.sw*
+
 1.csv
 *.tmp
 words.csv
