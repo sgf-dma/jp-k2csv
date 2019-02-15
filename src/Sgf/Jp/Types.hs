@@ -7,6 +7,7 @@ module Sgf.Jp.Types
     , JWord (..)
     , defJWord
     , JConj (..)
+    , JConj' (..)
     , defJConj
     , testJConj
     , testJConjVoiced
@@ -205,6 +206,27 @@ instance ToRecord JConj where
                             , toField teFormK
                             , toField naiForm
                             , toField naiFormK
+                            , toField (unwords conjTags)
+                            ]
+
+-- | Version of 'JConj' with 'ToRecord' instance writing /all/ fields into
+-- csv.
+newtype JConj'      = JConj' JConj
+  deriving (Show, Read, Eq)
+
+instance ToRecord JConj' where
+    toRecord (JConj' (JConj {..})) = record
+                            [ toField conjNumber
+                            , toField conjReference
+                            , toField dictForm
+                            , toField dictFormK
+                            , toField masuForm
+                            , toField masuFormK
+                            , toField teForm
+                            , toField teFormK
+                            , toField naiForm
+                            , toField naiFormK
+                            , toField conjTranslate
                             , toField (unwords conjTags)
                             ]
 

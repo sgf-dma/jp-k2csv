@@ -4,6 +4,7 @@ module Main where
 
 import Data.Csv
 import qualified Data.ByteString.Lazy   as BL
+import qualified Data.Map               as M
 
 import qualified Sgf.Data.Text.Table    as T
 import Sgf.Jp
@@ -26,6 +27,7 @@ main = do
         (return . buildMap conjNumber)
     checkMap mconj
     writeMap "conj.csv" mconj
+    writeMap "conj-full.csv" (M.map (map JConj') mconj)
 
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
