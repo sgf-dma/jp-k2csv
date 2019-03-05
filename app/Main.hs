@@ -21,6 +21,7 @@ main = do
     checkRefs m
     writeMap "foreign.csv" (possibleForeign m)
     writeMap "words.csv"   m
+    writeMap "words-ndsc.csv"   (M.map (map JWordN) m)
 
     mconj <- T.decodeFileL "../conjugations.txt" >>= either
         (\e -> error $ "Can't parse JConj table " ++ e)

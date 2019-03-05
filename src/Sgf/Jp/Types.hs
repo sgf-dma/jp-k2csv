@@ -5,6 +5,7 @@ module Sgf.Jp.Types
     ( JKana (..)
     , defJKana
     , JWord (..)
+    , JWordN (..)
     , defJWord
     , JConj (..)
     , JConjF (..)
@@ -106,6 +107,22 @@ instance ToRecord JWord where
                             , toField origin
                             , toField translate
                             , toField description
+                            , toField seeAlso
+                            , toField tags
+                            ]
+
+-- | Version of 'JWord' without description.
+newtype JWordN      = JWordN JWord
+  deriving (Show, Read)
+
+instance ToRecord JWordN where
+    toRecord (JWordN JWord{..}) = record
+                            [ toField number
+                            , toField reference
+                            , toField reading1
+                            , toField reading2
+                            , toField origin
+                            , toField translate
                             , toField seeAlso
                             , toField tags
                             ]
@@ -215,7 +232,7 @@ newtype JConjF      = JConjF JConj
   deriving (Show, Read, Eq)
 
 instance ToRecord JConjF where
-    toRecord (JConjF (JConj {..})) = record
+    toRecord (JConjF JConj{..}) = record
                             [ toField conjNumber
                             , toField conjReference
                             , toField dictForm

@@ -7,9 +7,11 @@ vforms/
 1.csv
 *.tmp
 words.csv
+words-ndsc.csv
 kana.csv
 words-mnn.csv
 conj.csv
+conj-full.csv
 foreign.csv
 
 random-nums-[0-9]*.txt
