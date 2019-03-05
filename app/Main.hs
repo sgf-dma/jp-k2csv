@@ -18,7 +18,7 @@ main = do
         (\e -> error $ "Can't parse JWords table " ++ e)
         (return . buildMap number)
     checkMap m
-    checkRefs m
+    --checkRefs m
     writeMap "foreign.csv" (possibleForeign m)
     writeMap "words.csv"   m
     writeMap "words-ndsc.csv"   (M.map (map JWordN) m)
