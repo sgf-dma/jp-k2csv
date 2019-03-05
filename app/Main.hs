@@ -27,7 +27,7 @@ main = do
         (return . buildMap conjNumber)
     checkMap mconj
     writeMap "conj.csv" mconj
-    writeMap "conj-full.csv" (M.map (map JConj') mconj)
+    writeMap "conj-full.csv" (M.map (map JConjF) mconj)
 
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
