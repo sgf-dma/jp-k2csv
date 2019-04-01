@@ -1,0 +1,35 @@
+
+- name: "test"
+  files: &files
+    dest: "./vforms/taru-tiru"
+  filter: &filter
+    lesson:
+    tags:
+  questions:
+    - front:
+        - line:
+          - vform:
+              filter:
+                <<: *filter
+                tags:
+                  - "transitive"
+              base: "dictBased"
+      back:
+        line:
+        - vform:
+            base: "teBased"
+            new:  "てあります"
+
+    - front:
+        - line:
+          - vform:
+              filter:
+                <<: *filter
+                tags:
+                  - "intransitive"
+              base: "dictBased"
+      back:
+        line:
+        - vform:
+            base: "teBased"
+            new:  "ています"

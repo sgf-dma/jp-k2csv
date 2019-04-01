@@ -1,0 +1,36 @@
+
+- name: "passive"
+  files: &files
+    dest: "./vforms/passive"
+  filter:
+    lesson:
+      from: 40
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+        - vform:
+            base: "conditionalBased"
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            base: "naiBased"
+            new:  "れる"
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            rowMod: "potentialForm"
+            base: "dictBased"
+        - vform:
+            filter:
+              tags:
+                - "v2"
+            base: "naiBased"
+            new:  "られる"
+
