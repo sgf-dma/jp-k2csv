@@ -1,0 +1,85 @@
+
+- name: "ex1"
+  files: &files
+    dest: "./vforms/ex"
+  filter:
+    lesson:
+      from: 45
+      till: 45
+  questions:
+    - front:
+        - line:
+          - vform: &masu
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+          - vform:
+              base: "dictBased"
+              new:  ""
+
+- name: "ex2"
+  files: *files
+  filter:
+    lesson:
+      from: 45
+      till: 45
+  questions:
+    - front:
+        - line:
+          - vform: *masu
+      back:
+        line:
+          - vform: &dict
+              base: "dictBased"
+              new:  ""
+          - vform: &nai
+              base: "naiBased"
+              new:  "ない"
+          - vform: &ta
+              base: "teBased"
+              new:  "た"
+          - vform: &nakatta
+              base: "naiBased"
+              new:  "なかった"
+
+- name: "ex3"
+  files: *files
+  filter:
+    lesson:
+      from: 45
+      till: 45
+  questions:
+    - front:
+        - line:
+          - vform: *dict
+        - line:
+          - vform: *nai
+        - line:
+          - vform: *ta
+        - line:
+          - vform: *nakatta
+      back:
+        line:
+          - vform: *masu
+
+- name: "ex4"
+  files: *files
+  filter:
+    lesson:
+      from: 45
+      till: 45
+  questions:
+    - front:
+        - line:
+          - vform: *ta
+      back:
+        line:
+          - vform: *nai
+    - front:
+        - line:
+            - vform: *nai
+      back:
+        line:
+          - vform: *dict
+

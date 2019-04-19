@@ -1,0 +1,57 @@
+
+- name: "imp"
+  files: &files
+    dest: "./vforms/imp-vol"
+  questions:
+    - front:
+        - line:
+          - vform: &dict
+              base: "dictBased"
+      back:
+        line:
+        - vform: &imp
+            base: "imperativeBased"
+
+- name: "vol"
+  files: &files
+    dest: "./vforms/imp-vol"
+  questions:
+    - front:
+        - line:
+          - vform: &dict
+              base: "dictBased"
+      back:
+        line:
+        - vform: &vol
+            base: "volitionalBased"
+
+- name: "imp-vol"
+  files: &files
+    dest: "./vforms/imp-vol"
+  filter:
+    lesson:
+      from: 0
+  questions:
+    - front:
+        - line:
+          - vform: *vol
+      back:
+        line:
+        - vform: *imp
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            rowMod: potentialForm
+            base: dictBased
+            new: ""
+        - vform:
+            base: dictBased
+            new: "な"
+    - front:
+        - line:
+          - vform: *imp
+      back:
+        line:
+        - vform: *vol
+

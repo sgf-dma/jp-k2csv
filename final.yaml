@@ -1,0 +1,88 @@
+#- masu -> futsuu + potential
+#29 intrans: dict -> dict
+#31 こう : け
+#33 け, -> こう ,くな
+
+- name: "final34"
+  files: &files
+    dest: "./vforms/final34"
+  filter: &filter
+    lesson: &lfilter
+      from: 0
+    tags:
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+        - vform: &futsuuDict
+            base: "dictBased"
+        - vform:
+            <<: *futsuuDict
+            rowMod: "potentialForm"
+
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ません"
+      back:
+        line:
+        - vform: &futsuuNai
+            base: "naiBased"
+            new: "ない"
+        - vform:
+            <<: *futsuuNai
+            rowMod: "potentialForm"
+
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ました"
+      back:
+        line:
+        - vform: &futsuuTa
+            base: "teBased"
+            new: "た"
+        - vform:
+            <<: *futsuuTa
+            rowMod: "potentialForm"
+
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ませんでした"
+      back:
+        line:
+        - vform: &futsuuNakatta
+            base: "naiBased"
+            new: "なかった"
+        - vform:
+            <<: *futsuuNakatta
+            rowMod: "potentialForm"
+
+    - front:
+        - line:
+          - vform:
+              base: "volitionalBased"
+      back:
+        line:
+        - vform:
+            base: "imperativeBased"
+
+    - front:
+        - line:
+          - vform:
+              base: "imperativeBased"
+      back:
+        line:
+        - vform:
+            base: "volitionalBased"
+        - vform:
+            <<: *futsuuDict
+            new: "な"
