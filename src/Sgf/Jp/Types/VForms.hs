@@ -428,6 +428,38 @@ conditionalBased suf w
     genV3   = mapMaybe (\t -> (<> suf) <$> v3VerbTo v3Conditional t)
                 . wordsWithSuffix ""
 
+-- FIXME: Conjugation chain. Should be implement through just function
+-- composition, not this shit..
+honorificForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
+honorificForm jcm jc
+  | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
+      jc
+        { dictForm  = T.unpack . writingToLine . genH . T.pack . dictForm $ naruJc
+        , dictFormK = T.unpack . writingToLine . genHK . T.pack . dictForm $ naruJc
+        , masuForm  = T.unpack . writingToLine . genH . T.pack . masuForm $ naruJc
+        , masuFormK = T.unpack . writingToLine . genHK . T.pack . masuForm $ naruJc
+        , teForm    = T.unpack . writingToLine . genH . T.pack . teForm $ naruJc
+        , teFormK   = T.unpack . writingToLine . genHK . T.pack . teForm $ naruJc
+        , naiForm   = T.unpack . writingToLine . genH . T.pack . naiForm $ naruJc
+        , naiFormK  = T.unpack . writingToLine . genHK . T.pack . naiForm $ naruJc
+        }
+  | "v3" `elem` conjTags jc = Nothing
+  | otherwise = error $ "Unknown verb conjugation in potentialForm for " ++ dictForm jc
+  where
+    naruJc :: JConj
+    naruJc  = case (M.lookup 128 jcm) of
+                Just [x]
+                  | dictFormK x == "成る" -> x
+                  | otherwise             -> error "Row 128 is not 成る."
+                Just _                    -> error "Row 128 with 成る contains several verbs."
+                Nothing                   -> error "Can't find row 128 with 成る."
+    genH :: T.Text -> Writing
+    genH naru = map (("お" <>) . (<> "に" <> naru)) . wordsWithSuffix "ます"
+                  . T.pack . masuForm $ jc
+    genHK :: T.Text -> Writing
+    genHK naru = map (("お" <>) . (<> "に" <> naru)) . wordsWithSuffix "ます"
+                  . T.pack . masuFormK $ jc
+
 baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
@@ -444,6 +476,7 @@ rowModFuncs   = [ ("id", const (Just <$> id))
                 , ("transPair", lookupTransPair)
                 , ("potentialForm", potentialForm)
                 , ("causativeForm", causativeForm)
+                , ("honorificForm", honorificForm)
                 ]
 
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj

@@ -1,0 +1,33 @@
+
+- name: "testp"
+  files: &files
+    dest: "./vforms/testh"
+  filter: &filter
+    lesson:
+      from: 24
+      till: 24
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            rowMod: "honorificForm"
+            base: "dictBased"
+            new:  ""
+        - vform:
+            rowMod: "honorificForm"
+            base: "masuBased"
+            new:  "ます"
+        - vform:
+            rowMod: "honorificForm"
+            base: "naiBased"
+            new:  "ない"
+        - vform:
+            rowMod: "honorificForm"
+            base: "teBased"
+            new:  "た"
+
