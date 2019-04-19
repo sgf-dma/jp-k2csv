@@ -432,6 +432,9 @@ conditionalBased suf w
 -- composition, not this shit..
 honorificForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
 honorificForm jcm jc
+  | isJust (conjHonorificRef jc)  =
+      conjHonorificRef jc >>= flip M.lookup jcm >>= listToMaybe
+  | "v3" `elem` conjTags jc || "nohonorific" `elem` conjTags jc = Nothing
   | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
       jc
         { dictForm  = T.unpack . writingToLine . genH . T.pack . dictForm $ naruJc
@@ -443,7 +446,6 @@ honorificForm jcm jc
         , naiForm   = T.unpack . writingToLine . genH . T.pack . naiForm $ naruJc
         , naiFormK  = T.unpack . writingToLine . genHK . T.pack . naiForm $ naruJc
         }
-  | "v3" `elem` conjTags jc = Nothing
   | otherwise = error $ "Unknown verb conjugation in potentialForm for " ++ dictForm jc
   where
     naruJc :: JConj

@@ -130,6 +130,8 @@ instance ToRecord JWordN where
 data JConj          = JConj
                         { conjNumber    :: Int
                         , conjTransRef  :: Maybe Int
+                        , conjHonorificRef :: Maybe Int
+                        , conjHumbleRef :: Maybe Int
                         , conjReference :: String
                         , dictForm      :: String
                         , dictFormK     :: String
@@ -148,6 +150,8 @@ defJConj :: JConj
 defJConj = JConj
     { conjNumber    = 0
     , conjTransRef  = Nothing
+    , conjHonorificRef  = Nothing
+    , conjHumbleRef  = Nothing
     , conjReference = ""
     , dictForm      = ""
     , dictFormK     = ""
@@ -164,6 +168,8 @@ testJConj :: JConj
 testJConj = JConj
     { conjNumber    = 1111
     , conjTransRef  = Just 2222
+    , conjHonorificRef  = Just 2222
+    , conjHumbleRef  = Just 2222
     , conjReference = "M111-W23    M222-W1 "
     , dictForm      = "Dict-form"
     , dictFormK     = "Dict-kanji-form"
@@ -181,6 +187,8 @@ testJConjVoiced :: JConj
 testJConjVoiced = JConj
     { conjNumber    = 1111
     , conjTransRef  = Just 2222
+    , conjHonorificRef  = Just 2222
+    , conjHumbleRef  = Just 2222
     , conjReference = "M111-W23    M222-W1 "
     , dictForm      = "Dict-form"
     , dictFormK     = "Dict-kanji-form"
@@ -199,6 +207,8 @@ instance T.FromTable JConj where
         JConj
             <$> m T..: "Num"
             <*> m T..: "Trans pair"
+            <*> m T..: "Honorific"
+            <*> m T..: "Humble"
             <*> (T.unpack <$> m T..: "Reference")
             <*> (T.unpack <$> m T..: "Dict form")
             <*> (T.unpack <$> m T..: "Dict kanji")
