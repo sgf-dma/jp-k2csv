@@ -434,7 +434,7 @@ honorificForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
 honorificForm jcm jc
   | isJust (conjHonorificRef jc)  =
       conjHonorificRef jc >>= flip M.lookup jcm >>= listToMaybe
-  | "v3" `elem` conjTags jc || "nohonorific" `elem` conjTags jc = Nothing
+  | any (`elem` ["v3", "humble", "honorific"]) (conjTags jc) = Nothing
   | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
       jc
         { dictForm  = T.unpack . writingToLine . genH . T.pack . dictForm $ naruJc
@@ -462,6 +462,38 @@ honorificForm jcm jc
     genHK naru = map (("お" <>) . (<> "に" <> naru)) . wordsWithSuffix "ます"
                   . T.pack . masuFormK $ jc
 
+humbleForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
+humbleForm jcm jc
+  | isJust (conjHumbleRef jc)  =
+      conjHumbleRef jc >>= flip M.lookup jcm >>= listToMaybe
+  | any (`elem` ["v3", "humble", "honorific"]) (conjTags jc) = Nothing
+  | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
+      jc
+        { dictForm  = T.unpack . writingToLine . genH . T.pack . dictForm $ suruJc
+        , dictFormK = T.unpack . writingToLine . genHK . T.pack . dictForm $ suruJc
+        , masuForm  = T.unpack . writingToLine . genH . T.pack . masuForm $ suruJc
+        , masuFormK = T.unpack . writingToLine . genHK . T.pack . masuForm $ suruJc
+        , teForm    = T.unpack . writingToLine . genH . T.pack . teForm $ suruJc
+        , teFormK   = T.unpack . writingToLine . genHK . T.pack . teForm $ suruJc
+        , naiForm   = T.unpack . writingToLine . genH . T.pack . naiForm $ suruJc
+        , naiFormK  = T.unpack . writingToLine . genHK . T.pack . naiForm $ suruJc
+        }
+  | otherwise = error $ "Unknown verb conjugation in potentialForm for " ++ dictForm jc
+  where
+    suruJc :: JConj
+    suruJc  = case (M.lookup 14 jcm) of
+                Just [x]
+                  | dictFormK x == "為る" -> x
+                  | otherwise             -> error "Row 14 is not 為る."
+                Just _                    -> error "Row 14 with 為る contains several verbs."
+                Nothing                   -> error "Can't find row 14 with 為る."
+    genH :: T.Text -> Writing
+    genH suru = map (("お" <>) . (<> suru)) . wordsWithSuffix "ます"
+                  . T.pack . masuForm $ jc
+    genHK :: T.Text -> Writing
+    genHK suru = map (("お" <>) . (<> suru)) . wordsWithSuffix "ます"
+                  . T.pack . masuFormK $ jc
+
 baseForms :: [(T.Text, T.Text -> JConj -> Maybe VForm2)]
 baseForms   =   [ ("teBased", teBased)
                 , ("naiBased", naiBased)
@@ -479,6 +511,7 @@ rowModFuncs   = [ ("id", const (Just <$> id))
                 , ("potentialForm", potentialForm)
                 , ("causativeForm", causativeForm)
                 , ("honorificForm", honorificForm)
+                , ("humbleForm", humbleForm)
                 ]
 
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj
