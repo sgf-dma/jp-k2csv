@@ -432,8 +432,8 @@ conditionalBased suf w
 -- composition, not this shit..
 honorificForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
 honorificForm jcm jc
-  | isJust (conjHonorificRef jc)  =
-      conjHonorificRef jc >>= flip M.lookup jcm >>= listToMaybe
+  | not . null $ conjHonorificRef jc  =
+      listToMaybe . concat $ mapMaybe (flip M.lookup jcm) (conjHonorificRef jc)
   | any (`elem` ["v3", "humble", "honorific"]) (conjTags jc) = Nothing
   | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
       jc
@@ -464,8 +464,8 @@ honorificForm jcm jc
 
 humbleForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
 humbleForm jcm jc
-  | isJust (conjHumbleRef jc)  =
-      conjHumbleRef jc >>= flip M.lookup jcm >>= listToMaybe
+  | not . null $ conjHumbleRef jc  =
+      listToMaybe . concat $ mapMaybe (flip M.lookup jcm) (conjHumbleRef jc)
   | any (`elem` ["v3", "humble", "honorific"]) (conjTags jc) = Nothing
   | "v1" `elem` conjTags jc || "v2" `elem` conjTags jc = pure $
       jc
