@@ -67,6 +67,41 @@
 
 #### Под windows.
 
+1. Установить [Git Bash][9] и [ConEmu][10].
+
+2. Установить [Haskell Stack][11].
+
+3. Скачать репозиторий:
+
+    - В терминале git bash выполнить
+
+        $ git clone 'https://github.com/sgf-dma/jp-k2csv.git'
+
+    перейти в папку
+
+        $ cd jp-k2csv
+
+    и запустить в корневой папке (`jp-k2csv`):
+
+        $ stack build
+
+    - Или скачать архив, зайти в папку в `Conemu`
+
+        $ cd jp-k2csv
+
+    и запустить в корневой папке (`jp-k2csv`):
+
+        $ stack build
+
+4. Запустить `ConEmu` и перейти в папку `jp-k2csv` (если ещё не сделали это на
+   предыдущем шаге). Затем изменить code page на utf-8
+
+        $ chcp 65001
+
+5. Можно попробовать запустить
+
+        $ stack exec verb-forms
+
 ....
 
 
@@ -78,4 +113,7 @@
 [6]: https://docs.haskellstack.org/en/stable/install_and_upgrade/#manual-download_2
 [7]: package.yaml
 [8]: https://raw.githubusercontent.com/sgf-dma/jp-conj/dev/conjugations.txt
+[9]: https://gitforwindows.org/
+[10]: https://conemu.github.io/
+[11]: https://docs.haskellstack.org/en/stable/install_and_upgrade/#windows
 
