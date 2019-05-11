@@ -10,6 +10,8 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
 import qualified Options.Applicative    as A
 import           Control.Monad
+import           System.Directory
+import           System.FilePath
 
 import Data.Aeson.Encode.Pretty
 import qualified Sgf.Data.Text.Table    as T
@@ -44,7 +46,10 @@ main = join . A.customExecParser (A.prefs A.showHelpOnError) $
 
 work_ :: FilePath -> IO ()
 work_ cfp = do
-    mconj <- T.decodeFileL "../conjugations.txt" >>= either
+    cwd <- getCurrentDirectory >>= makeAbsolute
+    let conjFile = cwd </> "conjugations.txt"
+
+    mconj <- T.decodeFileL conjFile >>= either
         (\e -> error $ "Can't parse JConj table " ++ e)
         (return . buildMap conjNumber)
     checkMap mconj
