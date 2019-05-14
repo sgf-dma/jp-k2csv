@@ -29,6 +29,15 @@ import Sgf.Jp.Types.VForms
 modifyM :: MonadState s m => (s -> m s) -> m ()
 modifyM f = get >>= f >>= put
 
+genSpec :: VFormSpec -> JConj -> ReaderT VFReader Maybe VForm2
+genSpec VFormSpec{..} jc = do
+    VFReader{..} <- ask
+    go (getLast (runFilter runSpec <> vformFilter)) curJConj
+  where
+    go :: Maybe VFormFilter -> JConj -> ReaderT VFReader Maybe VForm2
+    go mvf jc | maybe True (flip applyFilter jc) mvf = lift (stem jc)
+              | otherwise = mzero
+
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
     modifyM f
