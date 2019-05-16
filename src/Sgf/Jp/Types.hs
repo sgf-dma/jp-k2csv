@@ -20,6 +20,7 @@ module Sgf.Jp.Types
 
 import           Data.Either (rights)
 import qualified Data.Text              as T
+import qualified TextShow               as T
 import           Data.Csv
 import qualified Data.Attoparsec.Text   as A
 
@@ -244,6 +245,9 @@ newtype JConjF      = JConjF JConj
 instance ToRecord JConjF where
     toRecord (JConjF JConj{..}) = record
                             [ toField conjNumber
+                            , toField conjTransRef
+                            , toField $ T.showtList conjHonorificRef
+                            , toField $ T.showtList conjHumbleRef
                             , toField conjReference
                             , toField dictForm
                             , toField dictFormK
