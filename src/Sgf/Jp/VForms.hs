@@ -29,17 +29,12 @@ import Sgf.Jp.Types.VForms
 modifyM :: MonadState s m => (s -> m s) -> m ()
 modifyM f = get >>= f >>= put
 
-{-genSpec :: VFormSpec -> JConj -> ReaderT VFReader Maybe VForm2
-genSpec VFormSpec{..} jc = do
-    VFReader{..} <- ask
-    go (getLast (runFilter runSpec <> vformFilter)) curJConj
+genSpec :: VFormSpec -> JConj -> Maybe VForm2
+genSpec VFormSpec{..} = go (getLast vformFilter)
   where
-    go :: Maybe VFormFilter -> JConj -> ReaderT VFReader Maybe VForm2
-    go mvf jc | maybe True (flip applyFilter jc) mvf = lift (stem jc)
+    go :: Maybe VFormFilter -> JConj -> Maybe VForm2
+    go mvf jc | maybe True (flip applyFilter jc) mvf = stem jc
               | otherwise = mzero
--}
-{-genSpec2 :: VFormSpec -> JConj -> ReaderT VFReader [VForm2]
-genSpec2 VFormSpec{..} jc = do-}
 
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
@@ -72,10 +67,32 @@ groupByState eq (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
                         ((ys, _) : zs)  -> (xN : ys, sN) : zs
       | otherwise   = ([xN], sN) : zf w
 
-{-g2 :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
+-- FIXME: Remove tuple from here and just add `JConj` into `VForm2`.
+genSpec2 :: VFormSpec -> (VForm2 -> Writing) -> M.Map Int [JConj] -> JConj -> [(T.Text, JConj)]
+genSpec2 vfs@VFormSpec{..} f jcm jc = do
+    jc' <- maybeToList (rowMod jcm jc)
+    maybe mzero (\t -> return (t, jc')) $ genSpec vfs jc' >>= go
+  where
+    -- FIXME: Merge this function into `writingToLine`.
+    go :: VForm2 -> Maybe T.Text
+    go vf   = let vt = writingToLine (f vf)
+              in  if T.null vt then mzero else pure vt
+
+g2 :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
 g2 (LineSpec vsp) f = do
     VFReader{..} <- ask
-    map (\vf -> genSpec vf ) vsp-}
+    let h = buildLine $ concatMap (\vf -> groupByState (==) $ genSpec2 vf f jconjMap curJConj) vsp
+    lift h
+  where
+    -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
+    buildLineS :: ([T.Text], JConj) -> T.Text
+    buildLineS (ts, jc) = T.concat . L.intersperse "; "
+                            . flip snoc (T.pack . show $ conjNumber jc)
+                            $ ts
+    -- | Build a line from several blocks for /different/ 'JConj'-s.
+    buildLine :: [([T.Text], JConj)] -> Maybe T.Text
+    buildLine []    = mzero
+    buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
 genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
 genLine (LineSpec vsp) f    = ReaderT $
@@ -100,7 +117,7 @@ genLine (LineSpec vsp) f    = ReaderT $
     buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
-genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f
+genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip g2 f
 
 zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
 zipM mxs mys    = do

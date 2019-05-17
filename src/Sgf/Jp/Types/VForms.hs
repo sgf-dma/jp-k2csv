@@ -46,6 +46,7 @@ type Writing        = [T.Text]
 writingToLine :: [T.Text] -> T.Text
 writingToLine = T.concat . intersperse ", "
 
+-- FIXME: Add here `JConj` as field.
 data VForm2         = VForm2
                         { kanaForm2     :: Writing
                         , kanjiForm2    :: Writing
