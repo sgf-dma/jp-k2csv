@@ -143,6 +143,18 @@ generateForms = do
     q  <- lift (qsSpec runSpec)
     local (\vf -> vf{curJConj = jc}) (generateForms' q)
 
+generateForms2 :: ReaderT VFReader [] (T.Text, T.Text)
+generateForms2 = do
+    VFReader{..} <- ask
+    -- FIXME: Remove Last monoid!
+    let p = maybe (const True) applyFilter (getLast (runFilter runSpec))
+    jc <- lift . filter p $ concat (M.elems jconjMap)
+    q  <- lift (qsSpec runSpec)
+    local (\vf -> vf{curJConj = jc}) (generateForms' q) $ do
+      qs <- asks (questionWriting . curJConj) >>= genLine' questionSpec
+      as <- mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
+      return (zip qs (repeat as))
+
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
     createDirectoryIfMissing True destDir
