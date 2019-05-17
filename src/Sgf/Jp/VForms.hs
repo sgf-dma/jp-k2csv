@@ -29,7 +29,7 @@ import Sgf.Jp.Types.VForms
 modifyM :: MonadState s m => (s -> m s) -> m ()
 modifyM f = get >>= f >>= put
 
-genSpec :: VFormSpec -> JConj -> ReaderT VFReader Maybe VForm2
+{-genSpec :: VFormSpec -> JConj -> ReaderT VFReader Maybe VForm2
 genSpec VFormSpec{..} jc = do
     VFReader{..} <- ask
     go (getLast (runFilter runSpec <> vformFilter)) curJConj
@@ -37,12 +37,17 @@ genSpec VFormSpec{..} jc = do
     go :: Maybe VFormFilter -> JConj -> ReaderT VFReader Maybe VForm2
     go mvf jc | maybe True (flip applyFilter jc) mvf = lift (stem jc)
               | otherwise = mzero
+-}
+{-genSpec2 :: VFormSpec -> JConj -> ReaderT VFReader [VForm2]
+genSpec2 VFormSpec{..} jc = do-}
 
 genSpec' :: VFormSpec -> StateT VFReader Maybe VForm2
 genSpec' VFormSpec{..} = do
     modifyM f
     VFReader{..} <- get
-    go (getLast (runFilter runSpec <> vformFilter)) curJConj
+    -- FIXME: Why i combine filters? Run filter should be _already_ applied.
+    -- Now i should apply vform filter only, shouldn't i?
+    go (getLast vformFilter) curJConj
   where
     f :: VFReader -> StateT VFReader Maybe VFReader
     f vf@VFReader{..} = do
@@ -66,6 +71,11 @@ groupByState eq (x0 : xs) = foldr go (\(y, s) -> [([y], s)]) xs x0
                         []              -> error "Impossible condition in `groupByState`."
                         ((ys, _) : zs)  -> (xN : ys, sN) : zs
       | otherwise   = ([xN], sN) : zf w
+
+{-g2 :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
+g2 (LineSpec vsp) f = do
+    VFReader{..} <- ask
+    map (\vf -> genSpec vf ) vsp-}
 
 genLine :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
 genLine (LineSpec vsp) f    = ReaderT $
@@ -110,7 +120,9 @@ generateForms' QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT ans
 generateForms :: ReaderT VFReader [] (T.Text, T.Text)
 generateForms = do
     VFReader{..} <- ask
-    jc <- lift $ concat (M.elems jconjMap)
+    -- FIXME: Remove Last monoid!
+    let p = maybe (const True) applyFilter (getLast (runFilter runSpec))
+    jc <- lift . filter p $ concat (M.elems jconjMap)
     q  <- lift (qsSpec runSpec)
     local (\vf -> vf{curJConj = jc}) (generateForms' q)
 
@@ -134,6 +146,7 @@ writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj rs@RunSpec{..} = do
     print runFilter
     print rs
+    print (M.size mconj)
     let vfr = VFReader {jconjMap = mconj, runSpec = rs, curJConj = undefined}
     writeVerbFiles files (T.unpack runName) . unzip
         $ runReaderT generateForms vfr

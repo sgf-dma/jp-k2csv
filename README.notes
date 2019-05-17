@@ -69,6 +69,21 @@ The `back` side now looks like:
 
 and is completely correct per standard.
 
+## Filters.
+
+Generally, i have three  sets:
+- original `JConj` coming from main loop through `JConj` set,
+- `JConj` modified by `rowMod` in question,
+- `JConj` modified by `rowMod` in answer.
+
+And i may want to be able to apply a filter to any or all of this values.
+Thus, the global filter is applied _only_ to source (original) `JConj` (i.e.
+value _before_ applying `rowMod`). The `vform` filters are applied to
+_modified_ by `rowMod` values.
+
+The filters are _not_ summed and _not_ overwrite one another, they are applied
+_all_ in order: first - global, then corresponding question or answer filter.
+
 [1]: http://yaml.org/type/merge.html
 [2]: http://yaml.org/spec/1.2/spec.html#sequence//
 [3]: http://yaml.org/spec/1.2/spec.html#mapping//

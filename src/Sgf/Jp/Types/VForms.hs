@@ -632,6 +632,8 @@ instance FromJSON FileSpec where
 data RunSpec = RunSpec
                 { runName   :: T.Text
                 , qsSpec    :: [QSpec]
+                -- FIXME: If i no longer sum filters, i don't need monoid
+                -- here.
                 , runFilter :: Last VFormFilter
                 , files     :: FileSpec
                 }
