@@ -119,9 +119,10 @@ genLine (LineSpec vsp) f    = ReaderT $
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
 genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip g2 f
 
-zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
+--zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
 zipM mxs mys    = do
     xs <- mxs
+    when (xs == [] || xs == [T.empty]) $ error "Huy"
     ys <- mys
     return (zip xs ys)
 
@@ -143,7 +144,7 @@ generateForms = do
     q  <- lift (qsSpec runSpec)
     local (\vf -> vf{curJConj = jc}) (generateForms' q)
 
-generateForms2 :: ReaderT VFReader [] (T.Text, T.Text)
+{-generateForms2 :: ReaderT VFReader [] (T.Text, T.Text)
 generateForms2 = do
     VFReader{..} <- ask
     -- FIXME: Remove Last monoid!
@@ -153,7 +154,7 @@ generateForms2 = do
     local (\vf -> vf{curJConj = jc}) (generateForms' q) $ do
       qs <- asks (questionWriting . curJConj) >>= genLine' questionSpec
       as <- mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
-      return (zip qs (repeat as))
+      return (zip qs (repeat as))-}
 
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
