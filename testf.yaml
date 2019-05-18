@@ -1,0 +1,25 @@
+
+- name: "testf"
+  files: &files
+    dest: "./vforms/testf"
+  filter: &filter
+    lesson: &lfilter
+      from: 14
+      till: 14
+  questions:
+    - front:
+        - line:
+          - vform:
+              filter: &filter
+                lesson: &lfilter
+                  from: 14
+                  till: 14
+              rowMod: transPair
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            base: "teBased"
+            new:  "た"
+
