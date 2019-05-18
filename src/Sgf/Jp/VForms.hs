@@ -87,7 +87,9 @@ g2 (LineSpec vsp) f = do
     VFReader{..} <- ask
     let h = buildLine $ concatMap (\vf -> groupByState (==) $ genSpec2 vf f jconjMap curJConj) vsp
         h2 = buildLine $ groupByState (==) $ concatMap (\vf -> genSpec2 vf f jconjMap curJConj) vsp
-    lift h2
+        h3 = buildLine . groupByState (\x y -> conjNumber x == conjNumber y)
+                $ concatMap (\vf -> genSpec2 vf f jconjMap curJConj) vsp
+    lift h3
   where
     -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
     buildLineS :: ([T.Text], JConj) -> T.Text
@@ -208,13 +210,19 @@ debugLS vfr@VFReader{..} = do
     forM_ (map answerSpec (qsSpec runSpec)) $ \ls -> do
         let t = fromMaybe "huy" $ runReaderT (g2 ls qw) vfr
         putStrUtf8 t
-        let LineSpec vs = ls
-        forM vs $ \v -> do
+        let LineSpec vsp = ls
+        forM vsp $ \v -> do
             let ys = genSpec2 v qw jconjMap curJConj
                 bs = map (first T.encodeUtf8) ys
                 ys' = map (second conjNumber) ys
             --BS.putStrLn bs
             putStrUtf8 (T.showt ys')
+        let h0 = concatMap (\vf -> genSpec2 vf aw jconjMap curJConj) vsp
+            h0' = map (second conjNumber) h0
+            h2 = groupByState (\x y -> conjNumber x == conjNumber y) $ h0
+            h2' = map (second conjNumber) h2
+        putStrUtf8 (T.showt h0')
+        putStrUtf8 (T.showt h2')
 
 writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj rs@RunSpec{..} = do
@@ -226,8 +234,8 @@ writeRunSpec mconj rs@RunSpec{..} = do
         r1 = runReaderT generateForms vfr
         r2 = runReaderT generateForms2 vfr
     let p = maybe (const True) applyFilter (getLast runFilter)
-    --mapM_ (\jc -> debugLS (vfr{curJConj = jc})) (filter p $ concat (M.elems mconj))
-    when (r1 /= r2) $ error "v1 and v2 mismatch!"
+    mapM_ (\jc -> debugLS (vfr{curJConj = jc})) (filter p $ concat (M.elems mconj))
+    --when (r1 /= r2) $ error "v1 and v2 mismatch!"
     writeVerbFiles files (T.unpack runName <> "-v2") . unzip $ r2
     writeVerbFiles files (T.unpack runName <> "-v1") . unzip $ r1
 
