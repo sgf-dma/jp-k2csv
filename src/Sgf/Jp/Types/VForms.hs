@@ -19,6 +19,7 @@ module Sgf.Jp.Types.VForms
     , VFReader (..)
 
     , dictBased
+    , isKanji
     )
   where
 

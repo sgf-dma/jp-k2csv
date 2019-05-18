@@ -14,6 +14,7 @@ import           Data.List.Extra (snoc)
 import qualified Data.Map               as M
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T
+import qualified TextShow           as T
 import           System.Random.Shuffle
 import           System.FilePath
 import           System.Directory
@@ -25,6 +26,8 @@ import           Control.Arrow
 import Sgf.Jp.Types
 import Sgf.Jp.Types.VForms
 
+import qualified Data.Text.Encoding     as T
+import qualified Data.ByteString        as BS
 
 modifyM :: MonadState s m => (s -> m s) -> m ()
 modifyM f = get >>= f >>= put
@@ -78,11 +81,13 @@ genSpec2 vfs@VFormSpec{..} f jcm jc = do
     go vf   = let vt = writingToLine (f vf)
               in  if T.null vt then mzero else pure vt
 
+-- FIXME: Grouping is completely broken..
 g2 :: LineSpec -> (VForm2 -> Writing) -> ReaderT VFReader Maybe T.Text
 g2 (LineSpec vsp) f = do
     VFReader{..} <- ask
     let h = buildLine $ concatMap (\vf -> groupByState (==) $ genSpec2 vf f jconjMap curJConj) vsp
-    lift h
+        h2 = buildLine $ groupByState (==) $ concatMap (\vf -> genSpec2 vf f jconjMap curJConj) vsp
+    lift h2
   where
     -- | Build a line from several 'Writing'-s of a /single/ 'JConj'.
     buildLineS :: ([T.Text], JConj) -> T.Text
@@ -117,7 +122,10 @@ genLine (LineSpec vsp) f    = ReaderT $
     buildLine xs    = pure . T.concat . L.intersperse ". " . map buildLineS $ xs
 
 genLine' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
-genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip g2 f
+genLine' lsp f = lift lsp >>= mapReaderT maybeToList . flip genLine f
+
+g2' :: [LineSpec] -> (VForm2 -> Writing) -> ReaderT VFReader [] T.Text
+g2' lsp f = lift lsp >>= mapReaderT maybeToList . flip g2 f
 
 --zipM :: Monad m => m [a] -> m [b] -> m [(a, b)]
 zipM mxs mys    = do
@@ -135,6 +143,15 @@ generateForms' QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT ans
     answer :: ReaderT VFReader [] T.Text
     answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= genLine answerSpec)
 
+generateForms'2 :: QSpec -> ReaderT VFReader [] (T.Text, T.Text)
+generateForms'2 QSpec{..} = ReaderT $ zipM (runReaderT questions) (runReaderT answer)
+  where
+    questions :: ReaderT VFReader [] T.Text
+    questions   = asks (questionWriting . curJConj) >>= g2' questionSpec
+    -- There is only answer, i just repeat to match the number of questions.
+    answer :: ReaderT VFReader [] T.Text
+    answer      = mapReaderT (maybe [] repeat) (asks (answerWriting . curJConj) >>= g2 answerSpec)
+
 generateForms :: ReaderT VFReader [] (T.Text, T.Text)
 generateForms = do
     VFReader{..} <- ask
@@ -143,6 +160,15 @@ generateForms = do
     jc <- lift . filter p $ concat (M.elems jconjMap)
     q  <- lift (qsSpec runSpec)
     local (\vf -> vf{curJConj = jc}) (generateForms' q)
+
+generateForms2 :: ReaderT VFReader [] (T.Text, T.Text)
+generateForms2 = do
+    VFReader{..} <- ask
+    -- FIXME: Remove Last monoid!
+    let p = maybe (const True) applyFilter (getLast (runFilter runSpec))
+    jc <- lift . filter p $ concat (M.elems jconjMap)
+    q  <- lift (qsSpec runSpec)
+    local (\vf -> vf{curJConj = jc}) (generateForms'2 q)
 
 writeVerbFiles :: FileSpec -> String -> ([T.Text], [T.Text]) -> IO ()
 writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
@@ -160,14 +186,50 @@ writeVerbFiles FileSpec{..} runName (conjFormsQ, conjFormsA) = do
     afn    = destDir </> "vforms-" ++ runName ++ "-A" ++ ".txt"
     arfn n = destDir </> "random-" ++ runName ++ "-" ++ show n ++ "-A" ++ ".txt"
 
+putStrUtf8 :: T.Text -> IO ()
+putStrUtf8 = BS.putStr . T.encodeUtf8 . (`T.append` "\n")
+
+debugLS :: VFReader -> IO ()
+debugLS vfr@VFReader{..} = do
+    let qw = isKanji False curJConj
+        aw = isKanji True curJConj
+    print "Question:"
+    forM_ (concatMap questionSpec (qsSpec runSpec)) $ \ls -> do
+        let t = fromMaybe "huy" $ runReaderT (g2 ls qw) vfr
+        putStrUtf8 t
+        let LineSpec vs = ls
+        forM vs $ \v -> do
+            let ys = genSpec2 v qw jconjMap curJConj
+                bs = map (first T.encodeUtf8) ys
+                ys' = map (second conjNumber) ys
+            --BS.putStrLn bs
+            putStrUtf8 (T.showt ys')
+    print "Answer:"
+    forM_ (map answerSpec (qsSpec runSpec)) $ \ls -> do
+        let t = fromMaybe "huy" $ runReaderT (g2 ls qw) vfr
+        putStrUtf8 t
+        let LineSpec vs = ls
+        forM vs $ \v -> do
+            let ys = genSpec2 v qw jconjMap curJConj
+                bs = map (first T.encodeUtf8) ys
+                ys' = map (second conjNumber) ys
+            --BS.putStrLn bs
+            putStrUtf8 (T.showt ys')
+
 writeRunSpec :: M.Map Int [JConj] -> RunSpec -> IO ()
 writeRunSpec mconj rs@RunSpec{..} = do
     print runFilter
     print rs
     print (M.size mconj)
+    print "Debug run"
     let vfr = VFReader {jconjMap = mconj, runSpec = rs, curJConj = undefined}
-    writeVerbFiles files (T.unpack runName) . unzip
-        $ runReaderT generateForms vfr
+        r1 = runReaderT generateForms vfr
+        r2 = runReaderT generateForms2 vfr
+    let p = maybe (const True) applyFilter (getLast runFilter)
+    --mapM_ (\jc -> debugLS (vfr{curJConj = jc})) (filter p $ concat (M.elems mconj))
+    when (r1 /= r2) $ error "v1 and v2 mismatch!"
+    writeVerbFiles files (T.unpack runName <> "-v2") . unzip $ r2
+    writeVerbFiles files (T.unpack runName <> "-v1") . unzip $ r1
 
 lnumFilter :: LNumFilter -> LNum -> Bool
 lnumFilter LessonRange{..} LNum{..}  =    maybe True (<= lessonNum) lnumFrom

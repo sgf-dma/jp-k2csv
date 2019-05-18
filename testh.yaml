@@ -1,5 +1,5 @@
 
-- name: "testp"
+- name: "testh"
   files: &files
     dest: "./vforms/testh"
   questions:
