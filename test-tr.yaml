@@ -1,0 +1,45 @@
+
+- name: "test-tr"
+  files:
+    dest: "./vforms/test-tr"
+  filter:
+    lesson:
+      from: 0
+  questions:
+    - front:
+        - line:
+          - vform:
+              filter:
+                tags:
+                  - "transitive"
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            rowMod: "transPair"
+            base: "dictBased"
+            new:  ""
+
+- name: "test-tr2"
+  files:
+    dest: "./vforms/test-tr"
+  filter:
+    lesson:
+      from: 0
+  questions:
+    - front:
+        - line:
+          - vform:
+              filter:
+                tags:
+                  - "intransitive"
+              base: "dictBased"
+              new:  ""
+      back:
+        line:
+        - vform:
+            rowMod: "transPair"
+            base: "dictBased"
+            new:  ""
+

@@ -235,7 +235,7 @@ writeRunSpec mconj rs@RunSpec{..} = do
         r2 = runReaderT generateForms2 vfr
     let p = maybe (const True) applyFilter (getLast runFilter)
     mapM_ (\jc -> debugLS (vfr{curJConj = jc})) (filter p $ concat (M.elems mconj))
-    --when (r1 /= r2) $ error "v1 and v2 mismatch!"
+    when (r1 /= r2) $ error "v1 and v2 mismatch!"
     writeVerbFiles files (T.unpack runName <> "-v2") . unzip $ r2
     writeVerbFiles files (T.unpack runName <> "-v1") . unzip $ r1
 

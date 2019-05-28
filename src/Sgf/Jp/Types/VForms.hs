@@ -602,9 +602,9 @@ instance Show QSpec where
 defQSpec :: QSpec
 defQSpec      = QSpec
                         { questionSpec      = []
-                        , questionWriting   = isKanji False
+                        , questionWriting   = isKanji2 False
                         , answerSpec        = LineSpec []
-                        , answerWriting     = isKanji True
+                        , answerWriting     = isKanji2 True
                         }
 
 instance FromJSON QSpec where
@@ -650,6 +650,12 @@ instance FromJSON RunSpec where
 
 isKanji :: Bool -> JConj -> VForm2 -> Writing
 isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAlways ||)
+            <$> inConjTags "kanji"
+
+isKanji2 :: Bool -> JConj -> VForm2 -> Writing
+isKanji2 isKanjiAlways = (\b -> if b then (++) <$> kanjiForm2 <*> kanaForm2
+                                     else (++) <$> kanaForm2 <*> kanaForm2)
+            . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
 data VFReader       = VFReader
