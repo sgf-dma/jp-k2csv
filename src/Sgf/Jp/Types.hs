@@ -23,6 +23,7 @@ import qualified Data.Text              as T
 import qualified TextShow               as T
 import           Data.Csv
 import qualified Data.Attoparsec.Text   as A
+import           Control.Applicative
 
 -- | For 'Serialize'.
 import           Control.Monad.State
@@ -269,7 +270,11 @@ data LNum       = LNum {lessonNum :: Int, seqNum :: Int}
   deriving (Show)
 
 lnumP :: A.Parser LNum
-lnumP = LNum <$> (A.string "M" *> A.decimal <* "-") <*> (A.string "W" *> A.decimal)
+lnumP = LNum
+            <$> ( (A.string "M" <|> A.string "N" <|> A.string "T")
+                *> A.decimal <* "-"
+                )
+            <*> (A.string "W" *> A.decimal)
 
 conjLNums :: JConj -> [LNum]
 conjLNums = rights . map (A.parseOnly lnumP) . toWords . T.pack . conjReference
