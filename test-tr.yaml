@@ -2,9 +2,6 @@
 - name: "test-tr"
   files:
     dest: "./vforms/test-tr"
-  filter:
-    lesson:
-      from: 0
   questions:
     - front:
         - line:
@@ -39,6 +36,9 @@
       back:
         line:
         - vform:
+            filter:
+              lesson:
+                from: 0
             rowMod: "transPair"
             base: "dictBased"
             new:  ""

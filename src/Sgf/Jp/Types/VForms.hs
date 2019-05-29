@@ -653,8 +653,10 @@ isKanji isKanjiAlways = (\b -> if b then kanjiForm2 else kanaForm2) . (isKanjiAl
             <$> inConjTags "kanji"
 
 isKanji2 :: Bool -> JConj -> VForm2 -> Writing
-isKanji2 isKanjiAlways = (\b -> if b then (++) <$> kanjiForm2 <*> kanaForm2
-                                     else (++) <$> kanaForm2 <*> kanaForm2)
+isKanji2 isKanjiAlways =
+            (\b -> if b then mconcat <$> sequenceA [kanaForm2, kanjiForm2, translForm2]
+                                     else mconcat <$> sequenceA [kanaForm2, kanjiForm2, translForm2]
+                )
             . (isKanjiAlways ||)
             <$> inConjTags "kanji"
 
