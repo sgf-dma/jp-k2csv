@@ -610,9 +610,9 @@ defQSpec      = QSpec
 instance FromJSON QSpec where
     parseJSON     = withObject "question" $ \v -> QSpec
                                 <$> v .: "front"
-                                <*> pure (isKanji False)
+                                <*> pure (questionWriting defQSpec)
                                 <*> v .: "back"
-                                <*> pure (isKanji True)
+                                <*> pure (answerWriting defQSpec)
 
 data FileSpec   = FileSpec
                     { destDir   :: FilePath
