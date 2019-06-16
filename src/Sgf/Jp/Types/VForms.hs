@@ -602,9 +602,9 @@ instance Show QSpec where
 defQSpec :: QSpec
 defQSpec      = QSpec
                         { questionSpec      = []
-                        , questionWriting   = isKanji2 False
+                        , questionWriting   = isKanji False
                         , answerSpec        = LineSpec []
-                        , answerWriting     = isKanji2 True
+                        , answerWriting     = isKanji True
                         }
 
 instance FromJSON QSpec where

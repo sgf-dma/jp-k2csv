@@ -1,10 +1,7 @@
 
-- name: "passive"
+- name: "causative"
   files: &files
     dest: "./vforms/causative"
-  filter:
-    lesson:
-      from: 1
   questions:
     - front:
         - line:
@@ -14,6 +11,9 @@
       back:
         line:
         - vform:
+            rowMod: "potentialForm"
+            base: "dictBased"
+        - vform:
             base: "dictBased"
             rowMod: causativeForm
         - vform:
@@ -22,9 +22,6 @@
                 - "v1"
             base: "naiBased"
             new:  "れる"
-        - vform:
-            rowMod: "potentialForm"
-            base: "dictBased"
         - vform:
             base: "conditionalBased"
         - vform:
