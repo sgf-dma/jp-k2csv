@@ -4,8 +4,8 @@
     dest: "./vforms/causative-passive-alt"
   filter: &filter
     lesson: &lfilter
-      from: 14
-      till: 15
+      from: 1
+      till: 10
   questions:
     - front:
         - line:

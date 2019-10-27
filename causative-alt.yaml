@@ -1,0 +1,30 @@
+
+- name: "causative-alt"
+  files: &files
+    dest: "./vforms/causative"
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+        - vform:
+            rowMod: "potentialForm"
+            base: "dictBased"
+        - vform:
+            base: "dictBased"
+            rowMod: causativeForm
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            base: "naiBased"
+            new:  "れる"
+        - vform:
+            base: "conditionalBased"
+        - vform:
+            base: "volitionalBased"
+        - vform:
+            base: "imperativeBased"
