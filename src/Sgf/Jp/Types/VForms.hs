@@ -108,6 +108,9 @@ dictFormTo xs t = do
     (ts <>) <$> lookup c xs
 
 -- | Map of v3 verb dictionary form to potential dictionary form.
+v3CausativePassiveDict :: [(T.Text, T.Text)]
+v3CausativePassiveDict = [("する", "させられる"), ("くる", "こさせられる"), ("来る", "来させられる")]
+
 v3CausativeDict :: [(T.Text, T.Text)]
 v3CausativeDict = [("する", "させる"), ("くる", "こさせる"), ("来る", "来させる")]
 
@@ -279,6 +282,45 @@ causativeForm _ jc = pure $
         pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
         map (<> sf) (wordsWithSuffix "る" pw)
 
+causativePassiveAltForm :: M.Map Int [JConj] -> JConj -> Maybe JConj
+causativePassiveAltForm _ jc = pure $
+    jc
+        { dictForm  = T.unpack . writingToLine . genV "る" . T.pack . dictForm $ jc
+        , dictFormK = T.unpack . writingToLine . genV "る" . T.pack . dictFormK $ jc
+        , masuForm  = T.unpack . writingToLine . genV "ます" . T.pack . dictForm $ jc
+        , masuFormK = T.unpack . writingToLine . genV "ます" . T.pack . dictFormK $ jc
+        , teForm    = T.unpack . writingToLine . genV "て" . T.pack . dictForm $ jc
+        , teFormK   = T.unpack . writingToLine . genV "て" . T.pack . dictFormK $ jc
+        , naiForm   = T.unpack . writingToLine . genV "ない" . T.pack . dictForm $ jc
+        , naiFormK  = T.unpack . writingToLine . genV "ない" . T.pack . dictFormK $ jc
+        }
+  where
+    -- FIXME: Empty list will omit row or.. what?
+    genV1 :: T.Text -> T.Text -> Writing
+    genV1 sf v
+      | T.takeEnd 1 v == "す"   =
+            mapMaybe (\t -> (<> "せられ" <> sf) <$> dictFormTo aForm t)
+                . wordsWithSuffix ""
+                $ v
+      | otherwise               =
+            mapMaybe (\t -> (<> "され" <> sf) <$> dictFormTo aForm t)
+                . wordsWithSuffix ""
+                $ v
+    genV :: T.Text -> T.Text -> Writing
+    genV
+      | "v1" `elem` conjTags jc = genV1
+      | "v2" `elem` conjTags jc = genV2
+      | "v3" `elem` conjTags jc = genV3
+      | otherwise = error $ "Unknown verb conjugation in potentialForm for " ++ dictForm jc
+    genV2 :: T.Text -> T.Text -> Writing
+    genV2 sf    = map (<> "させられ" <> sf) . wordsWithSuffix "る"
+    genV3 :: T.Text -> T.Text -> Writing
+    genV3 sf dws   = do
+        dw <- wordsWithSuffix "" dws
+        (old, new) <- filter ((`T.isSuffixOf` dw) . fst) v3CausativePassiveDict
+        pw <- (<> new) <$> maybeToList (old `T.stripSuffix` dw)
+        map (<> sf) (wordsWithSuffix "る" pw)
+
 potentialBased :: T.Text -> JConj -> Maybe VForm2
 potentialBased suf w
   | "v1" `elem` conjTags w = pure $
@@ -444,6 +486,7 @@ rowModFuncs   = [ ("id", const (Just <$> id))
                 , ("transPair", lookupTransPair)
                 , ("potentialForm", potentialForm)
                 , ("causativeForm", causativeForm)
+                , ("causativePassiveAltForm", causativePassiveAltForm)
                 ]
 
 lookupTransPair :: M.Map Int [JConj] -> JConj -> Maybe JConj

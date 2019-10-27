@@ -1,0 +1,31 @@
+
+- name: "causative-passive-alt"
+  files: &files
+    dest: "./vforms/causative-passive-alt"
+  filter: &filter
+    lesson: &lfilter
+      from: 14
+      till: 15
+  questions:
+    - front:
+        - line:
+          - vform:
+              base: "masuBased"
+              new:  "ます"
+      back:
+        line:
+        - vform:
+            base: "dictBased"
+            rowMod: causativePassiveAltForm
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            base: "naiBased"
+            new:  "れる"
+        - vform:
+            filter:
+              tags:
+                - "v1"
+            base: "naiBased"
+            new:  "される"
