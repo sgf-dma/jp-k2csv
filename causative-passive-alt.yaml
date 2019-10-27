@@ -16,16 +16,13 @@
         line:
         - vform:
             base: "dictBased"
+            rowMod: potentialForm
+        - vform:
+            base: "dictBased"
+            rowMod: passiveForm
+        - vform:
+            base: "dictBased"
+            rowMod: causativeForm
+        - vform:
+            base: "dictBased"
             rowMod: causativePassiveAltForm
-        - vform:
-            filter:
-              tags:
-                - "v1"
-            base: "naiBased"
-            new:  "れる"
-        - vform:
-            filter:
-              tags:
-                - "v1"
-            base: "naiBased"
-            new:  "される"
