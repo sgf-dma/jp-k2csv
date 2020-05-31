@@ -30,6 +30,12 @@ main = do
     writeMap "conj.csv" mconj
     writeMap "conj-full.csv" (M.map (map JConjF) mconj)
 
+    mjoin <- T.decodeFileL "../join.txt" >>= either
+        (\e -> error $ "Can't parse Join table " ++ e)
+        (return . (`asTypeOf` [defJJoin]))
+    BL.writeFile "join.csv" (encode mjoin)
+    print $ "Join elements: " ++ show (length mjoin)
+
     kw <- readFile "../kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
     BL.writeFile "kana.csv" (encode ks)

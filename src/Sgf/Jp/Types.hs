@@ -15,6 +15,8 @@ module Sgf.Jp.Types
     , inConjTags
     , LNum (..)
     , inConjLnums
+    , JJoin (..)
+    , defJJoin
     )
   where
 
@@ -267,4 +269,56 @@ conjLNums = rights . map (A.parseOnly lnumP) . toWords . T.pack . conjReference
 
 inConjLnums :: (LNum -> Bool) -> JConj -> Bool
 inConjLnums p = any p . conjLNums
+
+data JJoin  = JJoin
+                { grammar   :: String
+                , shortName :: String
+                , verb      :: String
+                , i_adj     :: String
+                , na_adj    :: String
+                , noun      :: String
+                , ref       :: String
+                , similar   :: String
+                , join_desc :: String
+                }
+  deriving (Show, Read)
+
+defJJoin :: JJoin
+defJJoin    = JJoin
+                { grammar   = ""
+                , shortName = ""
+                , verb      = ""
+                , i_adj     = ""
+                , na_adj    = ""
+                , noun      = ""
+                , ref       = ""
+                , similar   = ""
+                , join_desc = ""
+                }
+
+instance T.FromTable JJoin where
+    parseTable      = T.withTableText "JJoin" $ \m ->
+        JJoin
+            <$> (T.unpack <$> m T..: "文法")
+            <*> (T.unpack <$> m T..: "省略")
+            <*> (T.unpack <$> m T..: "動詞")
+            <*> (T.unpack <$> m T..: "いー形容詞")
+            <*> (T.unpack <$> m T..: "なー形容詞")
+            <*> (T.unpack <$> m T..: "名詞")
+            <*> (T.unpack <$> m T..: "参照")
+            <*> (T.unpack <$> m T..: "似る")
+            <*> (T.unpack <$> m T..: "説明")
+
+instance ToRecord JJoin where
+    toRecord (JJoin {..}) = record
+                            [ toField grammar
+                            , toField shortName
+                            , toField verb
+                            , toField i_adj
+                            , toField na_adj
+                            , toField noun
+                            , toField ref
+                            , toField similar
+                            , toField join_desc
+                            ]
 
