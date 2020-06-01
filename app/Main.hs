@@ -14,7 +14,7 @@ import Sgf.Data.Text.OldTable
 
 main :: IO ()
 main = do
-    m <- T.decodeFileL "../words-mnn.txt" >>= either
+    m <- T.decodeFileL "words-mnn.txt" >>= either
         (\e -> error $ "Can't parse JWords table " ++ e)
         (return . buildMap number)
     checkMap m
@@ -23,20 +23,20 @@ main = do
     writeMap "words.csv"   m
     writeMap "words-ndsc.csv"   (M.map (map JWordN) m)
 
-    mconj <- T.decodeFileL "../conjugations.txt" >>= either
+    mconj <- T.decodeFileL "conjugations.txt" >>= either
         (\e -> error $ "Can't parse JConj table " ++ e)
         (return . buildMap conjNumber)
     checkMap mconj
     writeMap "conj.csv" mconj
     writeMap "conj-full.csv" (M.map (map JConjF) mconj)
 
-    mjoin <- T.decodeFileL "../join.txt" >>= either
+    mjoin <- T.decodeFileL "join.txt" >>= either
         (\e -> error $ "Can't parse Join table " ++ e)
         (return . (`asTypeOf` [defJJoin]))
     BL.writeFile "join.csv" (encode mjoin)
     print $ "Join elements: " ++ show (length mjoin)
 
-    kw <- readFile "../kana.txt"
+    kw <- readFile "kana.txt"
     let ks = concatMap fst (parseAll kw) :: [JKana]
     BL.writeFile "kana.csv" (encode ks)
 
